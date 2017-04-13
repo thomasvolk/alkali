@@ -11,12 +11,16 @@ class ActorSystem {
     private val _currentActor = ThreadLocal<ActorReference>()
 
     fun <T> actor(name: String, actorClass: KClass<T>): ActorReference where T : Actor {
-        return actor<T>(name, actorClass.java.newInstance())
+        return actor<T>(name, actorClass.java)
+    }
+
+    fun <T> actor(name: String, actorClass: Class<T>): ActorReference where T : Actor {
+        return actor<T>(name, actorClass.newInstance())
     }
 
     fun <T> actor(name: String, actor: T): ActorReference where T : Actor {
         if (_actors.contains(name)) {
-            throw IllegalArgumentException("actor $name already exists")
+            throw IllegalArgumentException("actor '$name' already exists")
         }
         val actorRef = actor.start(this)
         _actors.put(name, actorRef)
