@@ -86,9 +86,20 @@ abstract class Actor {
         if(_self != null) throw IllegalStateException("actor already started!")
         _self = ThreadActorReference(system, this)
         _thread = thread(start = true) {
-            mainLoop()
+            before()
+            try {
+                mainLoop()
+            } finally {
+                after()
+            }
         }
         return _self!!
+    }
+
+    open protected fun after() {
+    }
+
+    open protected fun before() {
     }
 
     internal fun waitForShutdown() { _thread?.join() }
