@@ -28,7 +28,7 @@ import kotlin.reflect.KClass
 object PoisonPill
 
 class ActorSystem {
-    private val _actors = mutableMapOf<String, ThreadActorReference>()
+    private val _actors = mutableMapOf<String, ActorReference>()
     private val _currentActor = ThreadLocal<ActorReference>()
 
     fun <T> actor(name: String, actorClass: KClass<T>): ActorReference where T : Actor = actor(name, actorClass.java)
@@ -60,12 +60,8 @@ class ActorSystem {
 
 data class ActorMessageWrapper(val message: Any, val sender: ActorReference?)
 
-interface ActorReference {
-    fun send(message: Any)
-}
-
-class ThreadActorReference(val system: ActorSystem, private val actor: Actor): ActorReference {
-    override fun send(message: Any) {
+class ActorReference(val system: ActorSystem, private val actor: Actor) {
+    fun send(message: Any) {
         actor.send(message, system.current())
     }
 
@@ -77,14 +73,14 @@ class ThreadActorReference(val system: ActorSystem, private val actor: Actor): A
 abstract class Actor {
     private val _inbox = LinkedBlockingQueue<ActorMessageWrapper>()
     private var _running = true
-    private var _self: ThreadActorReference? = null
+    private var _self: ActorReference? = null
     private var _sender: ActorReference? = null
     private var _thread: Thread? = null
 
     @Synchronized
-    internal fun start(system: ActorSystem): ThreadActorReference {
+    internal fun start(system: ActorSystem): ActorReference {
         if(_self != null) throw IllegalStateException("actor already started!")
-        _self = ThreadActorReference(system, this)
+        _self = ActorReference(system, this)
         _thread = thread(start = true) {
             before()
             try {
