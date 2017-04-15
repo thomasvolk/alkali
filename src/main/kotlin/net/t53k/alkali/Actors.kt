@@ -31,14 +31,11 @@ class ActorSystem {
     private val _actors = mutableMapOf<String, ThreadActorReference>()
     private val _currentActor = ThreadLocal<ActorReference>()
 
-    fun <T> actor(name: String, actorClass: KClass<T>): ActorReference where T : Actor {
-        return actor<T>(name, actorClass.java)
-    }
+    fun <T> actor(name: String, actorClass: KClass<T>): ActorReference where T : Actor = actor(name, actorClass.java)
 
-    fun <T> actor(name: String, actorClass: Class<T>): ActorReference where T : Actor {
-        return actor<T>(name, actorClass.newInstance())
-    }
+    fun <T> actor(name: String, actorClass: Class<T>): ActorReference where T : Actor = actor(name, actorClass.newInstance())
 
+    @Synchronized
     fun <T> actor(name: String, actor: T): ActorReference where T : Actor {
         if (_actors.contains(name)) {
             throw IllegalArgumentException("actor '$name' already exists")
@@ -48,28 +45,23 @@ class ActorSystem {
         return actorRef
     }
 
-    fun get(name: String): ActorReference { return _actors.get(name)!! }
+    fun get(name: String) = _actors[name]
 
-    fun current(): ActorReference { return _currentActor.get() ?: DummyActorReference }
+    fun current(): ActorReference? = _currentActor.get()
 
     fun current(actor: ActorReference) {
         _currentActor.set(actor)
     }
 
     fun waitForShutdown() {
-        _actors.forEach { (name, actor) -> actor.waitForShutdown() }
+        _actors.forEach { it.value.waitForShutdown() }
     }
 }
 
-data class ActorMessageWrapper(val message: Any, val sender: ActorReference)
+data class ActorMessageWrapper(val message: Any, val sender: ActorReference?)
 
 interface ActorReference {
     fun send(message: Any)
-}
-
-object DummyActorReference: ActorReference {
-    override fun send(message: Any) {
-    }
 }
 
 class ThreadActorReference(val system: ActorSystem, private val actor: Actor): ActorReference {
@@ -89,38 +81,43 @@ abstract class Actor {
     private var _sender: ActorReference? = null
     private var _thread: Thread? = null
 
-    fun start(system: ActorSystem): ThreadActorReference {
-        _sender = null
+    @Synchronized
+    internal fun start(system: ActorSystem): ThreadActorReference {
+        if(_self != null) throw IllegalStateException("actor already started!")
         _self = ThreadActorReference(system, this)
         _thread = thread(start = true) {
-            system().current(self())
-            while(_running) {
-                val (message, sender) = _inbox.take()
-                _sender = sender
-                when(message) {
-                    PoisonPill -> stop()
-                    else -> receive(message)
-                }
-            }
+            mainLoop()
         }
         return _self!!
     }
 
-    internal fun waitForShutdown() { _thread!!.join() }
+    internal fun waitForShutdown() { _thread?.join() }
+
+    internal fun send(message: Any, sender: ActorReference?) {
+        _inbox.offer(ActorMessageWrapper(message, sender))
+    }
+
+    private fun mainLoop() {
+        system().current(self())
+        while (_running) {
+            val (message, sender) = _inbox.take()
+            _sender = sender
+            when (message) {
+                PoisonPill -> stop()
+                else -> receive(message)
+            }
+        }
+    }
 
     protected fun stop() {
         _running = false
     }
 
-    internal fun send(message: Any, sender: ActorReference) {
-        _inbox.offer(ActorMessageWrapper(message, sender))
-    }
+    protected fun system() = self().system
 
-    protected fun system(): ActorSystem { return _self!!.system }
+    protected fun sender() = _sender
 
-    protected fun sender(): ActorReference { return _sender!! }
-
-    protected fun self(): ActorReference {return _self!! }
+    protected fun self() =  _self!!
 
     protected abstract fun receive(message: Any)
 }
