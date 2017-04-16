@@ -30,6 +30,7 @@ object PoisonPill
 class ActorSystem {
     private val _actors = mutableMapOf<String, ActorReference>()
     private val _currentActor = ThreadLocal<ActorReference>()
+    private var _active = true
 
     fun <T> actor(name: String, actorClass: KClass<T>): ActorReference where T : Actor = actor(name, actorClass.java)
 
@@ -37,6 +38,7 @@ class ActorSystem {
 
     @Synchronized
     fun <T> actor(name: String, actor: T): ActorReference where T : Actor {
+        passIfActive()
         if (_actors.contains(name)) {
             throw IllegalArgumentException("actor '$name' already exists")
         }
@@ -47,26 +49,36 @@ class ActorSystem {
 
     fun get(name: String) = _actors[name]
 
-    fun current(): ActorReference? = _currentActor.get()
+    fun currentActor(): ActorReference? = _currentActor.get()
 
-    fun current(actor: ActorReference) {
+    internal fun currentActor(actor: ActorReference) {
         _currentActor.set(actor)
     }
 
     fun waitForShutdown() {
+        if(currentActor() != null) { throw IllegalStateException("an actor of this system can not wait for shutdown")}
         _actors.forEach { it.value.waitForShutdown() }
     }
 
+    @Synchronized
     fun shutdown() {
+        passIfActive()
         _actors.forEach { it.value.send(PoisonPill) }
+        _active = false
     }
+
+    private fun passIfActive() {
+        if(!isActive()) { throw IllegalStateException("ActorSystem is not active!") }
+    }
+
+    fun isActive() = _active
 }
 
 data class ActorMessageWrapper(val message: Any, val sender: ActorReference?)
 
 class ActorReference(val system: ActorSystem, private val actor: Actor) {
     fun send(message: Any) {
-        actor.send(message, system.current())
+        actor.send(message, system.currentActor())
     }
 
     fun waitForShutdown() {
@@ -86,6 +98,7 @@ abstract class Actor {
         if(_self != null) throw IllegalStateException("actor already started!")
         _self = ActorReference(system, this)
         _thread = thread(start = true) {
+            system().currentActor(self())
             before()
             try {
                 mainLoop()
@@ -109,7 +122,6 @@ abstract class Actor {
     }
 
     private fun mainLoop() {
-        system().current(self())
         while (_running) {
             val (message, sender) = _inbox.take()
             _sender = sender

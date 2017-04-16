@@ -23,6 +23,7 @@ package net.t53k.alkali
 
 import org.junit.Test
 import org.junit.Assert.*
+import kotlin.concurrent.thread
 
 object Start
 object Stop
@@ -67,29 +68,44 @@ class PongActor: Actor() {
 class TestResultActor(val messageHandler: (Any) -> Unit): Actor() {
     override fun receive(message: Any) {
         messageHandler(message)
-        stop()
+        system().shutdown()
     }
 }
 
-class ActorTestRunner(val timeout: Long) {
-    fun test(testFun: (ActorSystem) -> Unit) {
+object ActorTestRunner {
+    fun test(timeout: Long, testFun: (ActorSystem) -> Unit): Boolean {
         val system = ActorSystem()
         try {
             testFun(system)
         } finally {
-            Thread.sleep(timeout)
-            system.shutdown()
-            system.waitForShutdown()
+            var doWait = true
+            thread(start = true) {
+                Thread.sleep(timeout)
+                doWait = false
+            }
+            while(doWait && system.isActive()) {
+                Thread.sleep(1)
+            }
+            if (system.isActive()) {
+                system.shutdown()
+                system.waitForShutdown()
+                return false
+            }
+            return true
+        }
+    }
+
+    fun testWithErrorOnTimeout(timeout: Long, testFun: (ActorSystem) -> Unit) {
+        if (!test(timeout, testFun)) {
+            throw RuntimeException("timeout $timeout reached!")
         }
     }
 }
-
 class ActorTest {
     private var message: Any? = null
     @Test
     fun pingPong() {
-        val testRunner = ActorTestRunner(2000)
-        testRunner.test { system ->
+        ActorTestRunner.testWithErrorOnTimeout(2000) { system ->
             val ping = system.actor("ping", PingActor::class)
             system.actor("pong", PongActor::class)
             system.actor("testResult", TestResultActor({ message = it }))
