@@ -41,7 +41,7 @@ class PingActor: Actor() {
             Stop -> {
                 sender()?.send(PoisonPill)
                 self().send(PoisonPill)
-                starter!!.send(lastPongId)
+                system().get("testResult")!!.send(lastPongId)
             }
             is Pong -> {
                 lastPongId = message.id
@@ -64,19 +64,16 @@ class PongActor: Actor() {
     }
 }
 
-
 class ActorTest {
     private var success = false
     inner class TestActor: Actor() {
         override fun receive(message: Any) {
             when(message) {
-                Start -> system().get("ping")!!.send(Start)
                 is Int -> {
                     assertEquals(message, 99)
                     success = true
                     stop()
                 }
-                else -> fail("wrong message format: $message")
             }
         }
 
@@ -84,10 +81,10 @@ class ActorTest {
     @Test
     fun pingPong() {
         val system = ActorSystem()
-        system.actor("ping", PingActor::class)
+        val ping = system.actor("ping", PingActor::class)
         system.actor("pong", PongActor::class)
-        val test = system.actor("test", TestActor())
-        test.send(Start)
+        system.actor("testResult", TestActor())
+        ping.send(Start)
         system.waitForShutdown()
         assertTrue(success)
     }

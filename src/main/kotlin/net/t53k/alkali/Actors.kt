@@ -56,6 +56,10 @@ class ActorSystem {
     fun waitForShutdown() {
         _actors.forEach { it.value.waitForShutdown() }
     }
+
+    fun shutdown() {
+        _actors.forEach { it.value.send(PoisonPill) }
+    }
 }
 
 data class ActorMessageWrapper(val message: Any, val sender: ActorReference?)
