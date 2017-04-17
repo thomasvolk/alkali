@@ -73,8 +73,7 @@ class PingPongTest {
             val ping = testSystem().actor("ping", PingActor::class)
             testSystem().actor("pong", PongActor::class)
             ping.send(Start)
-            expectMessage(99)
-        }
-        test.build().run()
+            expectMessage(19)
+        }.build().run()
     }
 }
