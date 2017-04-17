@@ -21,9 +21,8 @@
  */
 package net.t53k.alkali
 
+import net.t53k.alkali.test.ActorTestBuilder
 import org.junit.Test
-import org.junit.Assert.*
-import kotlin.concurrent.thread
 
 object Start
 object Stop
@@ -42,7 +41,7 @@ class PingActor: Actor() {
             Stop -> {
                 sender()?.send(PoisonPill)
                 self().send(PoisonPill)
-                system().get("testResult")!!.send(lastPongId)
+                starter!!.send(lastPongId)
             }
             is Pong -> {
                 lastPongId = message.id
@@ -65,57 +64,17 @@ class PongActor: Actor() {
     }
 }
 
-class TestResultActor(val messageHandler: (Any) -> Unit): Actor() {
-    override fun receive(message: Any) {
-        messageHandler(message)
-        system().shutdown()
-    }
-}
 
-object ActorTestRunner {
-    fun test(timeout: Long, testFun: (ActorSystem) -> Unit): Boolean {
-        val system = ActorSystem()
-        try {
-            testFun(system)
-        } finally {
-            var doWait = true
-            thread(start = true) {
-                Thread.sleep(timeout)
-                doWait = false
-            }
-            while(doWait && system.isActive()) {
-                Thread.sleep(1)
-            }
-            if (system.isActive()) {
-                system.shutdown()
-                system.waitForShutdown()
-                return false
-            }
-            return true
-        }
-    }
-
-    fun testWithErrorOnTimeout(timeout: Long, testFun: (ActorSystem) -> Unit) {
-        if (!test(timeout, testFun)) {
-            throw RuntimeException("timeout $timeout reached!")
-        }
-    }
-}
-class ActorTest {
-    private var message: Any? = null
+class PingPongTest {
     @Test
     fun pingPong() {
-        ActorTestRunner.testWithErrorOnTimeout(2000) { system ->
-            val ping = system.actor("ping", PingActor::class)
-            system.actor("pong", PongActor::class)
-            system.actor("testResult", TestResultActor({ message = it }))
+        val test = ActorTestBuilder()
+        test.test {
+            val ping = testSystem().actor("ping", PingActor::class)
+            testSystem().actor("pong", PongActor::class)
             ping.send(Start)
+            expectMessage(99)
         }
-        when (message) {
-            is Int -> {
-                assertEquals(message, 99)
-            }
-            else -> fail("wrong message: $message")
-        }
+        test.build().run()
     }
 }
