@@ -27,6 +27,10 @@ import kotlin.concurrent.thread
 
 fun actorTestBuilder() = ActorTestBuilder()
 
+fun actorTest(test: ActorTest.TestRunActor.() -> Unit) {
+    actorTestBuilder().test(test).build().run()
+}
+
 private val TEST_LOOP_DELAY_MS: Long = 1
 
 fun ActorSystem.waitForShutdown(timeout: Long) {
