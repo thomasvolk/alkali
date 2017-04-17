@@ -25,6 +25,25 @@ import net.t53k.alkali.Actor
 import net.t53k.alkali.ActorSystem
 import kotlin.concurrent.thread
 
+fun actorTestBuilder() = ActorTestBuilder()
+
+private val TEST_LOOP_DELAY_MS: Long = 1
+
+fun ActorSystem.waitForShutdown(timeout: Long) {
+    var doWait = true
+    thread(start = true) {
+        Thread.sleep(timeout)
+        doWait = false
+    }
+    while(doWait && isActive()) {
+        Thread.sleep(TEST_LOOP_DELAY_MS)
+    }
+    if (isActive()) {
+        shutdown()
+        waitForShutdown()
+        throw RuntimeException("timeout $timeout reached!")
+    }
+}
 
 class ActorTestBuilder {
     var _test: (ActorTest.TestRunActor.() -> Unit)? = null
@@ -49,16 +68,20 @@ class ActorTestBuilder {
 class ActorTest(val test: TestRunActor.() -> Unit, val timeout: Long) {
     class TestRunActor(val test: TestRunActor.() -> Unit): Actor() {
         private var expectedMessage: Any? = null
+
         override fun before() {
             test()
         }
+
         override fun receive(message: Any) {
             if (expectedMessage != message) {
                 throw RuntimeException("$expectedMessage != $message")
             }
             system().shutdown()
         }
+
         fun testSystem() = system()
+
         fun expectMessage(msg: Any) {
             expectedMessage = msg
         }
@@ -69,19 +92,7 @@ class ActorTest(val test: TestRunActor.() -> Unit, val timeout: Long) {
         try {
             system.actor(this.toString(), TestRunActor(test))
         } finally {
-            var doWait = true
-            thread(start = true) {
-                Thread.sleep(timeout)
-                doWait = false
-            }
-            while(doWait && system.isActive()) {
-                Thread.sleep(1)
-            }
-            if (system.isActive()) {
-                system.shutdown()
-                system.waitForShutdown()
-                throw RuntimeException("timeout $timeout reached!")
-            }
+            system.waitForShutdown(timeout)
         }
     }
 }

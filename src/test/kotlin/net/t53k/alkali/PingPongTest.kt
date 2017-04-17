@@ -21,7 +21,7 @@
  */
 package net.t53k.alkali
 
-import net.t53k.alkali.test.ActorTestBuilder
+import net.t53k.alkali.test.actorTestBuilder
 import org.junit.Test
 
 object Start
@@ -68,12 +68,11 @@ class PongActor: Actor() {
 class PingPongTest {
     @Test
     fun pingPong() {
-        val test = ActorTestBuilder()
-        test.test {
+        actorTestBuilder().test {
             val ping = testSystem().actor("ping", PingActor::class)
             testSystem().actor("pong", PongActor::class)
             ping.send(Start)
-            expectMessage(19)
+            expectMessage(99)
         }.build().run()
     }
 }
