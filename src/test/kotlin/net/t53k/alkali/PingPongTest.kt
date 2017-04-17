@@ -24,12 +24,10 @@ package net.t53k.alkali
 import net.t53k.alkali.test.actorTest
 import org.junit.Test
 
-object Start
-object Stop
-object Ping
-data class Pong(val id: Int)
-
 class PingActor: Actor() {
+    object Start
+    object Stop
+    object Ping
     private var lastPongId = 0
     private var starter: ActorReference? = null
     override fun receive(message: Any) {
@@ -43,7 +41,7 @@ class PingActor: Actor() {
                 self().send(PoisonPill)
                 starter!!.send(lastPongId)
             }
-            is Pong -> {
+            is PongActor.Pong -> {
                 lastPongId = message.id
                 sender()?.send(Ping)
             }
@@ -52,13 +50,14 @@ class PingActor: Actor() {
 }
 
 class PongActor: Actor() {
+    data class Pong(val id: Int)
     private var count = 0
     override fun receive(message: Any) {
         when(message) {
-            Ping -> {
+            PingActor.Ping -> {
                 count++
                 if(count < 100) sender()?.send(Pong(count))
-                else sender()?.send(Stop)
+                else sender()?.send(PingActor.Stop)
             }
         }
     }
@@ -71,7 +70,7 @@ class PingPongTest {
         actorTest {
             val ping = testSystem().actor("ping", PingActor::class)
             testSystem().actor("pong", PongActor::class)
-            ping.send(Start)
+            ping.send(PingActor.Start)
             expectMessage(99)
         }
     }

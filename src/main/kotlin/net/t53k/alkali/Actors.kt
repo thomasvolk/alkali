@@ -42,7 +42,7 @@ class ActorSystem {
         if (_actors.contains(name)) {
             throw IllegalArgumentException("actor '$name' already exists")
         }
-        val actorRef = actor.start(this)
+        val actorRef = actor.start(name, this)
         _actors.put(name, actorRef)
         return actorRef
     }
@@ -76,7 +76,7 @@ class ActorSystem {
 
 data class ActorMessageWrapper(val message: Any, val sender: ActorReference?)
 
-class ActorReference(val system: ActorSystem, private val actor: Actor) {
+class ActorReference(val system: ActorSystem, private val actor: Actor, val name: String) {
     fun send(message: Any) {
         actor.send(message, system.currentActor())
     }
@@ -84,6 +84,8 @@ class ActorReference(val system: ActorSystem, private val actor: Actor) {
     fun waitForShutdown() {
         actor.waitForShutdown()
     }
+
+    fun name() = name
 }
 
 abstract class Actor {
@@ -94,9 +96,9 @@ abstract class Actor {
     private var _thread: Thread? = null
 
     @Synchronized
-    internal fun start(system: ActorSystem): ActorReference {
+    internal fun start(name: String, system: ActorSystem): ActorReference {
         if(_self != null) throw IllegalStateException("actor already started!")
-        _self = ActorReference(system, this)
+        _self = ActorReference(system, this, name)
         _thread = thread(start = true) {
             system().currentActor(self())
             before()
