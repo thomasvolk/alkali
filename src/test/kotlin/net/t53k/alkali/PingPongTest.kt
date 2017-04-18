@@ -33,17 +33,17 @@ class PingActor: Actor() {
     override fun receive(message: Any) {
         when(message) {
             Start -> {
-                system().get("pong")!!.send(Ping)
+                system().find("pong")!! send Ping
                 starter = sender()
             }
             Stop -> {
-                sender()?.send(PoisonPill)
-                self().send(PoisonPill)
-                starter!!.send(lastPongId)
+                sender()!! send PoisonPill
+                self() send PoisonPill
+                starter!! send lastPongId
             }
             is PongActor.Pong -> {
                 lastPongId = message.id
-                sender()?.send(Ping)
+                sender()!! send Ping
             }
         }
     }
@@ -56,8 +56,8 @@ class PongActor: Actor() {
         when(message) {
             PingActor.Ping -> {
                 count++
-                if(count < 100) sender()?.send(Pong(count))
-                else sender()?.send(PingActor.Stop)
+                if(count < 100) sender()!! send Pong(count)
+                else sender()!! send PingActor.Stop
             }
         }
     }
@@ -70,7 +70,7 @@ class PingPongTest {
         actorTest {
             val ping = testSystem().actor("ping", PingActor::class)
             testSystem().actor("pong", PongActor::class)
-            ping.send(PingActor.Start)
+            ping send PingActor.Start
             expectMessage(99)
         }
     }

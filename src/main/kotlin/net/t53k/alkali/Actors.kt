@@ -47,7 +47,7 @@ class ActorSystem {
         return actorRef
     }
 
-    fun get(name: String) = _actors[name]
+    fun find(name: String) = _actors[name]
 
     fun currentActor(): ActorReference? = _currentActor.get()
 
@@ -77,7 +77,7 @@ class ActorSystem {
 data class ActorMessageWrapper(val message: Any, val sender: ActorReference?)
 
 class ActorReference(val system: ActorSystem, private val actor: Actor, val name: String) {
-    fun send(message: Any) {
+    infix fun send(message: Any) {
         actor.send(message, system.currentActor())
     }
 

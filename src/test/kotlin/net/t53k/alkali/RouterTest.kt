@@ -29,7 +29,7 @@ import org.junit.Test
 class Worker: Actor() {
     object Stop
     override fun receive(message: Any) {
-        system().get("aggregator")!!.send(message)
+        system().find("aggregator")!!.send(message)
     }
 }
 
@@ -71,11 +71,11 @@ class RouterTest {
                     system.actor("w3", Worker::class),
                     system.actor("w4", Worker::class)
             )));
-            aggregator.send(Aggregator.Register)
+            aggregator send Aggregator.Register
             for(i in 1..12) {
-                router.send(i)
+                router send i
             }
-            router.send(Broadcast(Worker.Stop))
+            router send Broadcast(Worker.Stop)
             expectMessage("01-w1#02-w2#03-w3#04-w4#05-w1#06-w2#07-w3#08-w4#09-w1#10-w2#11-w3#12-w4")
         }
     }

@@ -86,7 +86,7 @@ class ActorTest(val test: TestRunActor.() -> Unit, val timeout: Long) {
 
         fun testSystem() = system()
 
-        fun expectMessage(msg: Any) {
+        infix fun expectMessage(msg: Any) {
             expectedMessage = msg
         }
     }
