@@ -29,18 +29,18 @@ import org.junit.Test
 class Worker: Actor() {
     object Stop
     override fun receive(message: Any) {
-        system().find("aggregator")!!.send(message)
+        system().find("aggregator")!! send message
     }
 }
 
 class Aggregator(val workerCount: Int): Actor() {
     object Register
-    private var _receiver: ActorReference? = null
+    private lateinit var _receiver: ActorReference
     private val _messages = mutableListOf<String>()
     private var _stopCount = 0
     override fun receive(message: Any) {
        when(message) {
-           Register -> _receiver = sender()
+           Register -> _receiver = sender()!!
            is Int -> {
                val name = sender()!!.name()
                val num = String.format("%02d", message)
@@ -50,7 +50,7 @@ class Aggregator(val workerCount: Int): Actor() {
                _stopCount += 1
                if(_stopCount == workerCount) {
                    _messages.sort()
-                   _receiver!!.send(_messages.joinToString(separator = "#"))
+                   _receiver send _messages.joinToString(separator = "#")
                }
            }
        }

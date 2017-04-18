@@ -90,14 +90,15 @@ class ActorReference(val system: ActorSystem, private val actor: Actor, val name
 
 abstract class Actor {
     private val _inbox = LinkedBlockingQueue<ActorMessageWrapper>()
-    private var _running = true
-    private var _self: ActorReference? = null
+    private var _running = false
+    private lateinit var _self: ActorReference
     private var _sender: ActorReference? = null
-    private var _thread: Thread? = null
+    private lateinit var _thread: Thread
 
     @Synchronized
     internal fun start(name: String, system: ActorSystem): ActorReference {
-        if(_self != null) throw IllegalStateException("actor already started!")
+        if(_running) { throw IllegalStateException("actor already started!") }
+        _running = true
         _self = ActorReference(system, this, name)
         _thread = thread(start = true) {
             system().currentActor(self())
@@ -108,7 +109,7 @@ abstract class Actor {
                 after()
             }
         }
-        return _self!!
+        return _self
     }
 
     open protected fun after() {
@@ -117,7 +118,7 @@ abstract class Actor {
     open protected fun before() {
     }
 
-    internal fun waitForShutdown() { _thread?.join() }
+    internal fun waitForShutdown() { _thread.join() }
 
     internal fun send(message: Any, sender: ActorReference?) {
         _inbox.offer(ActorMessageWrapper(message, sender))
@@ -142,7 +143,7 @@ abstract class Actor {
 
     protected fun sender() = _sender
 
-    protected fun self() =  _self!!
+    protected fun self() =  _self
 
     protected abstract fun receive(message: Any)
 }
