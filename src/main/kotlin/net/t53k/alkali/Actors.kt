@@ -118,6 +118,10 @@ abstract class Actor {
     open protected fun before() {
     }
 
+    open protected fun onException(e: Exception) {
+        throw e
+    }
+
     internal fun waitForShutdown() { _thread.join() }
 
     internal fun send(message: Any, sender: ActorReference?) {
@@ -130,7 +134,13 @@ abstract class Actor {
             _sender = sender
             when (message) {
                 PoisonPill -> stop()
-                else -> receive(message)
+                else -> {
+                    try {
+                        receive(message)
+                    } catch (e: Exception) {
+                        onException(e)
+                    }
+                }
             }
         }
     }
