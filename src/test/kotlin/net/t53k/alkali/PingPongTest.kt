@@ -24,47 +24,47 @@ package net.t53k.alkali
 import net.t53k.alkali.test.actorTest
 import org.junit.Test
 
-class PingActor: Actor() {
-    object Start
-    object Stop
-    object Ping
-    private var lastPongId = 0
-    private var starter: ActorReference? = null
-    override fun receive(message: Any) {
-        when(message) {
-            Start -> {
-                system().find("pong")!! send Ping
-                starter = sender()
-            }
-            Stop -> {
-                sender()!! send PoisonPill
-                self() send PoisonPill
-                starter!! send lastPongId
-            }
-            is PongActor.Pong -> {
-                lastPongId = message.id
-                sender()!! send Ping
-            }
-        }
-    }
-}
-
-class PongActor: Actor() {
-    data class Pong(val id: Int)
-    private var count = 0
-    override fun receive(message: Any) {
-        when(message) {
-            PingActor.Ping -> {
-                count++
-                if(count < 100) sender()!! send Pong(count)
-                else sender()!! send PingActor.Stop
-            }
-        }
-    }
-}
-
-
 class PingPongTest {
+
+    class PingActor: Actor() {
+        object Start
+        object Stop
+        object Ping
+        private var lastPongId = 0
+        private var starter: ActorReference? = null
+        override fun receive(message: Any) {
+            when(message) {
+                Start -> {
+                    system().find("pong")!! send Ping
+                    starter = sender()
+                }
+                Stop -> {
+                    sender()!! send PoisonPill
+                    self() send PoisonPill
+                    starter!! send lastPongId
+                }
+                is PongActor.Pong -> {
+                    lastPongId = message.id
+                    sender()!! send Ping
+                }
+            }
+        }
+    }
+
+    class PongActor: Actor() {
+        data class Pong(val id: Int)
+        private var count = 0
+        override fun receive(message: Any) {
+            when(message) {
+                PingActor.Ping -> {
+                    count++
+                    if(count < 100) sender()!! send Pong(count)
+                    else sender()!! send PingActor.Stop
+                }
+            }
+        }
+    }
+
     @Test
     fun pingPong() {
         actorTest {

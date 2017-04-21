@@ -26,39 +26,38 @@ import net.t53k.alkali.router.RoundRobinRouter
 import net.t53k.alkali.test.actorTest
 import org.junit.Test
 
-class Worker: Actor() {
-    object Stop
-    override fun receive(message: Any) {
-        system().find("aggregator")!! send message
-    }
-}
-
-class Aggregator(val workerCount: Int): Actor() {
-    object Register
-    private lateinit var _receiver: ActorReference
-    private val _messages = mutableListOf<String>()
-    private var _stopCount = 0
-    override fun receive(message: Any) {
-       when(message) {
-           Register -> _receiver = sender()!!
-           is Int -> {
-               val name = sender()!!.name()
-               val num = String.format("%02d", message)
-               _messages.add("$num-$name")
-           }
-           Worker.Stop -> {
-               _stopCount += 1
-               if(_stopCount == workerCount) {
-                   _messages.sort()
-                   _receiver send _messages.joinToString(separator = "#")
-               }
-           }
-       }
-    }
-
-}
-
 class RouterTest {
+    class Worker: Actor() {
+        object Stop
+        override fun receive(message: Any) {
+            system().find("aggregator")!! send message
+        }
+    }
+
+    class Aggregator(val workerCount: Int): Actor() {
+        object Register
+        private lateinit var _receiver: ActorReference
+        private val _messages = mutableListOf<String>()
+        private var _stopCount = 0
+        override fun receive(message: Any) {
+            when(message) {
+                Register -> _receiver = sender()!!
+                is Int -> {
+                    val name = sender()!!.name()
+                    val num = String.format("%02d", message)
+                    _messages.add("$num-$name")
+                }
+                Worker.Stop -> {
+                    _stopCount += 1
+                    if(_stopCount == workerCount) {
+                        _messages.sort()
+                        _receiver send _messages.joinToString(separator = "#")
+                    }
+                }
+            }
+        }
+
+    }
     @Test
     fun routing() {
         actorTest {

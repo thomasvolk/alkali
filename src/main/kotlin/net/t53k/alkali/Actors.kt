@@ -112,6 +112,12 @@ abstract class Actor {
         return _self
     }
 
+    internal fun waitForShutdown() { _thread.join() }
+
+    internal fun send(message: Any, sender: ActorReference?) {
+        _inbox.offer(ActorMessageWrapper(message, sender))
+    }
+
     open protected fun after() {
     }
 
@@ -120,12 +126,6 @@ abstract class Actor {
 
     open protected fun onException(e: Exception) {
         throw e
-    }
-
-    internal fun waitForShutdown() { _thread.join() }
-
-    internal fun send(message: Any, sender: ActorReference?) {
-        _inbox.offer(ActorMessageWrapper(message, sender))
     }
 
     private fun mainLoop() {
