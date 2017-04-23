@@ -108,6 +108,9 @@ class ActorReference(val system: ActorSystem, private val actor: Actor, val name
         return name.hashCode()
     }
 
+    override fun toString(): String {
+        return "ActorReference(actor='$name')"
+    }
 
 }
 
