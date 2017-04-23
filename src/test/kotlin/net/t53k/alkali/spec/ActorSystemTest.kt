@@ -19,8 +19,10 @@
  * under the License.
  *
  */
-package net.t53k.alkali
+package net.t53k.alkali.spec
 
+import net.t53k.alkali.Actor
+import net.t53k.alkali.ActorSystem
 import net.t53k.alkali.test.actorTest
 import net.t53k.alkali.test.actorTestBuilder
 import org.junit.Test

@@ -19,8 +19,10 @@
  * under the License.
  *
  */
-package net.t53k.alkali
+package net.t53k.alkali.spec
 
+import net.t53k.alkali.Actor
+import net.t53k.alkali.ActorReference
 import net.t53k.alkali.router.Broadcast
 import net.t53k.alkali.router.RoundRobinRouter
 import net.t53k.alkali.test.actorTest
@@ -44,7 +46,7 @@ class RouterTest {
             when(message) {
                 Register -> _receiver = sender()!!
                 is Int -> {
-                    val name = sender()!!.name()
+                    val name = sender()!!.name
                     val num = String.format("%02d", message)
                     _messages.add("$name-$num")
                 }

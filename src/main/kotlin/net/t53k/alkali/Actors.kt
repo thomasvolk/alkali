@@ -78,7 +78,7 @@ class ActorSystem {
 
 data class ActorMessageWrapper(val message: Any, val sender: ActorReference?)
 
-class ActorReference(val system: ActorSystem, private val actor: Actor, val name: String) {
+class ActorReference(internal val system: ActorSystem, private val actor: Actor, val name: String) {
     infix fun send(message: Any) {
         actor.send(message, system.currentActor())
     }
@@ -87,11 +87,9 @@ class ActorReference(val system: ActorSystem, private val actor: Actor, val name
         actorToWatchAt.send(Watch)
     }
 
-    fun waitForShutdown() {
+    internal fun waitForShutdown() {
         actor.waitForShutdown()
     }
-
-    fun name() = name
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
