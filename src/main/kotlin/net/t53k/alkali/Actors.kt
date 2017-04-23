@@ -26,6 +26,8 @@ import kotlin.concurrent.thread
 import kotlin.reflect.KClass
 
 object PoisonPill
+object Terminated
+object Watch
 
 class ActorSystem {
     private val _actors = mutableMapOf<String, ActorReference>()
@@ -81,11 +83,32 @@ class ActorReference(val system: ActorSystem, private val actor: Actor, val name
         actor.send(message, system.currentActor())
     }
 
+    infix fun watch(actorToWatchAt: ActorReference) {
+        actorToWatchAt.send(Watch)
+    }
+
     fun waitForShutdown() {
         actor.waitForShutdown()
     }
 
     fun name() = name
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other?.javaClass != javaClass) return false
+
+        other as ActorReference
+
+        if (name != other.name) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        return name.hashCode()
+    }
+
+
 }
 
 abstract class Actor {
@@ -94,6 +117,7 @@ abstract class Actor {
     private lateinit var _self: ActorReference
     private var _sender: ActorReference? = null
     private lateinit var _thread: Thread
+    private val _watchers = mutableSetOf<ActorReference>()
 
     @Synchronized
     internal fun start(name: String, system: ActorSystem): ActorReference {
@@ -107,6 +131,7 @@ abstract class Actor {
                 mainLoop()
             } finally {
                 after()
+                _watchers.forEach { it send Terminated }
             }
         }
         return _self
@@ -115,7 +140,14 @@ abstract class Actor {
     internal fun waitForShutdown() { _thread.join() }
 
     internal fun send(message: Any, sender: ActorReference?) {
-        _inbox.offer(ActorMessageWrapper(message, sender))
+        if(_thread.isAlive) {
+            _inbox.offer(ActorMessageWrapper(message, sender))
+        } else {
+            deadLetter(message, sender)
+        }
+    }
+
+    open protected fun deadLetter(message: Any, sender: ActorReference?) {
     }
 
     open protected fun after() {
@@ -134,6 +166,7 @@ abstract class Actor {
             _sender = sender
             when (message) {
                 PoisonPill -> stop()
+                Watch -> sender()?.let { _watchers.add(it) }
                 else -> {
                     try {
                         receive(message)
