@@ -49,6 +49,7 @@ class ActorSystem {
         return actorRef
     }
 
+    @Synchronized
     fun find(name: String) = _actors[name]
 
     fun currentActor(): ActorReference? = _currentActor.get()
@@ -58,7 +59,7 @@ class ActorSystem {
     }
 
     fun waitForShutdown() {
-        if(currentActor() != null) { throw IllegalStateException("an actor of this system can not wait for shutdown")}
+        if(currentActor() != null) { throw IllegalStateException("an actor from the same system can not wait system shutdown")}
         _actors.forEach { it.value.waitForShutdown() }
     }
 
