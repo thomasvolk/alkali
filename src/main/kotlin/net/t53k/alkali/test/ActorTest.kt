@@ -71,23 +71,21 @@ class ActorTestBuilder {
 
 class ActorTest(val test: TestRunActor.() -> Unit, val timeout: Long) {
     class TestRunActor(val test: TestRunActor.() -> Unit): Actor() {
-        private var expectedMessage: Any? = null
+        private var messageHandler: (Any) -> (Unit) = { message -> }
 
         override fun before() {
             test()
         }
 
         override fun receive(message: Any) {
-            if (expectedMessage != message) {
-                throw RuntimeException("$expectedMessage != $message")
-            }
+            messageHandler(message)
             system().shutdown()
         }
 
         fun testSystem() = system()
 
-        infix fun expectMessage(msg: Any) {
-            expectedMessage = msg
+        infix fun onMessage(messageHandler: (Any) -> (Unit)) {
+            this.messageHandler = messageHandler
         }
     }
 

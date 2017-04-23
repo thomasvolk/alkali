@@ -24,6 +24,7 @@ package net.t53k.alkali
 import net.t53k.alkali.router.Broadcast
 import net.t53k.alkali.router.RoundRobinRouter
 import net.t53k.alkali.test.actorTest
+import org.junit.Assert
 import org.junit.Test
 
 class RouterTest {
@@ -73,18 +74,27 @@ class RouterTest {
                     router send i
                 }
                 router send Broadcast(Worker.Stop)
-                val expected = mutableListOf<String>()
-                var worker = 1
-                for(m in 1..messageCount) {
-                    expected.add(String.format("w%02d-%02d", worker, m))
-                    if(worker < workerCount) {
-                        worker += 1
-                    } else {
-                        worker = 1
-                    }
+                val expected = expectedResult(messageCount, workerCount)
+
+                onMessage { message ->
+                    Assert.assertEquals(expected, message)
                 }
-                expectMessage(expected.joinToString("#"))
             }
         }
+    }
+
+    private fun expectedResult(messageCount: Int, workerCount: Int): String {
+        val expected = mutableListOf<String>()
+        var worker = 1
+        for (m in 1..messageCount) {
+            expected.add(String.format("w%02d-%02d", worker, m))
+            if (worker < workerCount) {
+                worker += 1
+            } else {
+                worker = 1
+            }
+        }
+        expected.sort()
+        return expected.joinToString("#")
     }
 }

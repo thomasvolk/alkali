@@ -22,6 +22,7 @@
 package net.t53k.alkali
 
 import net.t53k.alkali.test.actorTest
+import org.junit.Assert
 import org.junit.Test
 
 class PingPongTest {
@@ -71,7 +72,9 @@ class PingPongTest {
             val ping = testSystem().actor("ping", PingActor::class)
             testSystem().actor("pong", PongActor::class)
             ping send PingActor.Start
-            expectMessage(99)
+            onMessage { message ->
+                Assert.assertEquals(99, message)
+            }
         }
     }
 }
