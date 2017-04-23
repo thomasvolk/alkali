@@ -52,12 +52,14 @@ class WatchingTest {
     }
     @Test
     fun reaper() {
-        actorTest {
-            val watchedActors = (1..10).map { testSystem().actor("d$it", DummyActor::class) }
-            testSystem().actor("reaper", Reaper(watchedActors.toHashSet(), { actors ->
-                val router = testSystem().actor("router", RoundRobinRouter(actors.toList()))
-                router send Broadcast(PoisonPill)
-            }))
+        (1..50).forEach {
+            actorTest {
+                val watchedActors = (1..it).map { testSystem().actor("d$it", DummyActor::class) }
+                testSystem().actor("reaper", Reaper(watchedActors.toHashSet(), { actors ->
+                    val router = testSystem().actor("router", RoundRobinRouter(actors.toList()))
+                    router send Broadcast(PoisonPill)
+                }))
+            }
         }
     }
 }

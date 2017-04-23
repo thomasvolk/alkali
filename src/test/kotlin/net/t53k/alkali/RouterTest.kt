@@ -45,7 +45,7 @@ class RouterTest {
                 is Int -> {
                     val name = sender()!!.name()
                     val num = String.format("%02d", message)
-                    _messages.add("$num-$name")
+                    _messages.add("$name-$num")
                 }
                 Worker.Stop -> {
                     _stopCount += 1
@@ -60,22 +60,31 @@ class RouterTest {
     }
     @Test
     fun routing() {
-        actorTest {
-            val WORKER_COUNT = 4
-            val system = testSystem()
-            val aggregator = system.actor("aggregator", Aggregator(WORKER_COUNT))
-            val router = system.actor("router", RoundRobinRouter(listOf(
-                    system.actor("w1", Worker::class),
-                    system.actor("w2", Worker::class),
-                    system.actor("w3", Worker::class),
-                    system.actor("w4", Worker::class)
-            )));
-            aggregator send Aggregator.Register
-            for(i in 1..12) {
-                router send i
+        (1..50).forEach { workerCount ->
+            actorTest {
+                val messageCount = 12
+                val system = testSystem()
+                val aggregator = system.actor("aggregator", Aggregator(workerCount))
+                val router = system.actor("router", RoundRobinRouter(
+                        (1..workerCount).map { system.actor(String.format("w%02d", it), Worker::class) }
+                ));
+                aggregator send Aggregator.Register
+                for (i in 1..messageCount) {
+                    router send i
+                }
+                router send Broadcast(Worker.Stop)
+                val expected = mutableListOf<String>()
+                var worker = 1
+                for(m in 1..messageCount) {
+                    expected.add(String.format("w%02d-%02d", worker, m))
+                    if(worker < workerCount) {
+                        worker += 1
+                    } else {
+                        worker = 1
+                    }
+                }
+                expectMessage(expected.joinToString("#"))
             }
-            router send Broadcast(Worker.Stop)
-            expectMessage("01-w1#02-w2#03-w3#04-w4#05-w1#06-w2#07-w3#08-w4#09-w1#10-w2#11-w3#12-w4")
         }
     }
 }
