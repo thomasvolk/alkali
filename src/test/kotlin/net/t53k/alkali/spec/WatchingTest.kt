@@ -35,19 +35,26 @@ class WatchingTest {
         override fun receive(message: Any) {
         }
     }
-    class Reaper(val actors: Set<ActorReference>, val starter: (actors: Set<ActorReference>) -> Unit): Actor() {
-        private val actorsLeft = actors.toMutableList()
+    class Reaper(val starter: Reaper.() -> Unit): Actor() {
+        private val actors = mutableListOf<ActorReference>()
+
+
+        fun actors(actors: List<ActorReference>) {
+            this.actors.addAll(actors)
+            actors.forEach{ self() watch it }
+        }
+
+        fun actors() = actors.toList()
 
         override fun before() {
-            actors.forEach{ self() watch it }
-            starter(actors)
+            starter()
 
         }
         override fun receive(message: Any) {
             when(message) {
                 Terminated -> {
-                    sender()?.let { actorsLeft.remove(it) }
-                    if(actorsLeft.size == 0) {
+                    sender()?.let { actors.remove(it) }
+                    if(actors.size == 0) {
                         system().shutdown()
                     }
                 }
@@ -58,12 +65,13 @@ class WatchingTest {
     fun reaper() {
         (1..50).forEach {
             actorTest {
-                val watchedActors = (1..it).map { testSystem().actor("d$it", DummyActor::class) }
-                testSystem().actor("reaper", Reaper(watchedActors.toHashSet(), { actors ->
-                    val router = testSystem().actor("router", RoundRobinRouter(actors.toList()))
+                testSystem().actor("reaper", Reaper( {
+                    actors ((1..it).map { testSystem().actor("d$it", DummyActor::class) })
+                    val router = testSystem().actor("router", RoundRobinRouter(actors()))
                     router send Broadcast(PoisonPill)
                 }))
             }
         }
     }
+
 }
