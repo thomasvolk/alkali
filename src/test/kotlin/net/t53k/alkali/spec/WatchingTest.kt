@@ -38,17 +38,14 @@ class WatchingTest {
     class Reaper(val starter: Reaper.() -> Unit): Actor() {
         private val actors = mutableListOf<ActorReference>()
 
-
-        fun actors(actors: List<ActorReference>) {
-            this.actors.addAll(actors)
-            actors.forEach{ self() watch it }
+        override fun <T : Actor> actor(name: String, actor: T): ActorReference {
+            val actorRef = super.actor(name, actor)
+            actors.add(actorRef)
+            return actorRef
         }
-
-        fun actors() = actors.toList()
 
         override fun before() {
             starter()
-
         }
         override fun receive(message: Any) {
             when(message) {
@@ -66,8 +63,8 @@ class WatchingTest {
         (1..50).forEach {
             actorTest {
                 testSystem().actor("reaper", Reaper( {
-                    actors ((1..it).map { testSystem().actor("d$it", DummyActor::class) })
-                    val router = testSystem().actor("router", RoundRobinRouter(actors()))
+                    val actors = (1..it).map { actor("d$it", DummyActor::class) }
+                    val router = testSystem().actor("router", RoundRobinRouter(actors))
                     router send Broadcast(PoisonPill)
                 }))
             }

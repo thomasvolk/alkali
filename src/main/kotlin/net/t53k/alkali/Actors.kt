@@ -29,17 +29,21 @@ object PoisonPill
 object Terminated
 object Watch
 
-class ActorSystem {
-    private val _actors = mutableMapOf<String, ActorReference>()
-    private val _currentActor = ThreadLocal<ActorReference>()
-    private var _active = true
-
+interface ActorFactory {
     fun <T> actor(name: String, actorClass: KClass<T>): ActorReference where T : Actor = actor(name, actorClass.java)
 
     fun <T> actor(name: String, actorClass: Class<T>): ActorReference where T : Actor = actor(name, actorClass.newInstance())
 
+    fun <T> actor(name: String, actor: T): ActorReference where T : Actor
+}
+
+class ActorSystem: ActorFactory {
+    private val _actors = mutableMapOf<String, ActorReference>()
+    private val _currentActor = ThreadLocal<ActorReference>()
+    private var _active = true
+
     @Synchronized
-    fun <T> actor(name: String, actor: T): ActorReference where T : Actor {
+    override fun <T> actor(name: String, actor: T): ActorReference where T : Actor {
         passIfActive()
         if (_actors.contains(name)) {
             throw IllegalArgumentException("actor '$name' already exists")
@@ -80,6 +84,7 @@ class ActorSystem {
 data class ActorMessageWrapper(val message: Any, val sender: ActorReference?)
 
 class ActorReference(internal val system: ActorSystem, private val actor: Actor, val name: String) {
+
     infix fun send(message: Any) {
         actor.send(message, system.currentActor())
     }
@@ -113,13 +118,19 @@ class ActorReference(internal val system: ActorSystem, private val actor: Actor,
 
 }
 
-abstract class Actor {
+abstract class Actor: ActorFactory  {
     private val _inbox = LinkedBlockingQueue<ActorMessageWrapper>()
     private var _running = false
     private lateinit var _self: ActorReference
     private var _sender: ActorReference? = null
     private lateinit var _thread: Thread
     private val _watchers = mutableSetOf<ActorReference>()
+
+    override fun <T : Actor> actor(name: String, actor: T): ActorReference {
+        val actorRef = system().actor(name, actor)
+        self() watch actorRef
+        return actorRef
+    }
 
     @Synchronized
     internal fun start(name: String, system: ActorSystem): ActorReference {
