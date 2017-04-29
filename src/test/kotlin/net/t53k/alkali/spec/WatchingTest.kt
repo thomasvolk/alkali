@@ -25,6 +25,7 @@ import net.t53k.alkali.Actor
 import net.t53k.alkali.ActorReference
 import net.t53k.alkali.PoisonPill
 import net.t53k.alkali.Terminated
+import net.t53k.alkali.actors.Reaper
 import net.t53k.alkali.router.Broadcast
 import net.t53k.alkali.router.RoundRobinRouter
 import net.t53k.alkali.test.actorTest
@@ -35,29 +36,7 @@ class WatchingTest {
         override fun receive(message: Any) {
         }
     }
-    class Reaper(val starter: Reaper.() -> Unit): Actor() {
-        private val actors = mutableListOf<ActorReference>()
 
-        override fun <T : Actor> actor(name: String, actor: T): ActorReference {
-            val actorRef = super.actor(name, actor)
-            actors.add(actorRef)
-            return actorRef
-        }
-
-        override fun before() {
-            starter()
-        }
-        override fun receive(message: Any) {
-            when(message) {
-                Terminated -> {
-                    sender()?.let { actors.remove(it) }
-                    if(actors.size == 0) {
-                        system().shutdown()
-                    }
-                }
-            }
-        }
-    }
     @Test
     fun reaper() {
         (1..50).forEach {
