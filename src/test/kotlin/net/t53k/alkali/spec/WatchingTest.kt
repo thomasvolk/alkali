@@ -40,7 +40,7 @@ class WatchingTest {
     @Test
     fun reaper() {
         (1..50).forEach {
-            actorTest {
+            actorTest { testActor ->
                 testSystem().actor("reaper", Reaper( {
                     val actors = (1..it).map { actor("d$it", DummyActor::class) }
                     val router = testSystem().actor("router", RoundRobinRouter(actors))

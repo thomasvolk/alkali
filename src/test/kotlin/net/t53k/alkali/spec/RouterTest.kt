@@ -37,14 +37,11 @@ class RouterTest {
         }
     }
 
-    class Aggregator(val workerCount: Int): Actor() {
-        object Register
-        private lateinit var _receiver: ActorReference
+    class Aggregator(val receiver: ActorReference, val workerCount: Int): Actor() {
         private val _messages = mutableListOf<String>()
         private var _stopCount = 0
         override fun receive(message: Any) {
             when(message) {
-                Register -> _receiver = sender()!!
                 is Int -> {
                     val name = sender()!!.name
                     val num = String.format("%02d", message)
@@ -54,7 +51,7 @@ class RouterTest {
                     _stopCount += 1
                     if(_stopCount == workerCount) {
                         _messages.sort()
-                        _receiver send _messages.joinToString(separator = "#")
+                        receiver send _messages.joinToString(separator = "#")
                     }
                 }
             }
@@ -64,14 +61,13 @@ class RouterTest {
     @Test
     fun routing() {
         (1..50).forEach { workerCount ->
-            actorTest {
+            actorTest { testActor ->
                 val messageCount = 12
                 val system = testSystem()
-                val aggregator = system.actor("aggregator", Aggregator(workerCount))
+                val aggregator = system.actor("aggregator", Aggregator(testActor, workerCount))
                 val router = system.actor("router", RoundRobinRouter(
                         (1..workerCount).map { system.actor(String.format("w%02d", it), Worker::class) }
                 ));
-                aggregator send Aggregator.Register
                 for (i in 1..messageCount) {
                     router.send(i, aggregator)
                 }

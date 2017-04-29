@@ -22,12 +22,13 @@
 package net.t53k.alkali.test
 
 import net.t53k.alkali.Actor
+import net.t53k.alkali.ActorReference
 import net.t53k.alkali.ActorSystem
 import kotlin.concurrent.thread
 
 fun actorTestBuilder() = ActorTestBuilder()
 
-fun actorTest(test: ActorTest.TestRunActor.() -> Unit) {
+fun actorTest(test: ActorTest.TestRunActor.(ActorReference) -> Unit) {
     actorTestBuilder().test(test).build().run()
 }
 
@@ -50,10 +51,10 @@ fun ActorSystem.waitForShutdown(timeout: Long) {
 }
 
 class ActorTestBuilder {
-    var _test: (ActorTest.TestRunActor.() -> Unit)? = null
+    var _test: (ActorTest.TestRunActor.(ActorReference) -> Unit)? = null
     var _timeout: Long = 2000
 
-    fun test(test: ActorTest.TestRunActor.() -> Unit): ActorTestBuilder {
+    fun test(test: ActorTest.TestRunActor.(ActorReference) -> Unit): ActorTestBuilder {
         _test = test
         return this
     }
@@ -69,12 +70,12 @@ class ActorTestBuilder {
 
 }
 
-class ActorTest(val test: TestRunActor.() -> Unit, val timeout: Long) {
-    class TestRunActor(val test: TestRunActor.() -> Unit): Actor() {
+class ActorTest(val test: TestRunActor.(ActorReference) -> Unit, val timeout: Long) {
+    class TestRunActor(val test: TestRunActor.(ActorReference) -> Unit): Actor() {
         private var messageHandler: (Any) -> (Unit) = { message -> }
 
         override fun before() {
-            test()
+            test(self())
         }
 
         override fun receive(message: Any) {
