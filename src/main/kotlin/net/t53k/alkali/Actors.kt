@@ -86,7 +86,11 @@ data class ActorMessageWrapper(val message: Any, val sender: ActorReference?)
 class ActorReference(internal val system: ActorSystem, private val actor: Actor, val name: String) {
 
     infix fun send(message: Any) {
-        actor.send(message, system.currentActor())
+        send(message, system.currentActor())
+    }
+
+    fun send(message: Any, sender: ActorReference?) {
+        actor.send(message, sender)
     }
 
     infix fun watch(actorToWatchAt: ActorReference) {
@@ -115,7 +119,6 @@ class ActorReference(internal val system: ActorSystem, private val actor: Actor,
     override fun toString(): String {
         return "ActorReference(actor='$name')"
     }
-
 }
 
 abstract class Actor: ActorFactory  {

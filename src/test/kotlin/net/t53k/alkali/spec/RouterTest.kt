@@ -33,7 +33,7 @@ class RouterTest {
     class Worker: Actor() {
         object Stop
         override fun receive(message: Any) {
-            system().find("aggregator")!! send message
+            sender()!! send message
         }
     }
 
@@ -73,9 +73,9 @@ class RouterTest {
                 ));
                 aggregator send Aggregator.Register
                 for (i in 1..messageCount) {
-                    router send i
+                    router.send(i, aggregator)
                 }
-                router send Broadcast(Worker.Stop)
+                router.send(Broadcast(Worker.Stop), aggregator)
                 val expected = expectedResult(messageCount, workerCount)
 
                 onMessage { message ->

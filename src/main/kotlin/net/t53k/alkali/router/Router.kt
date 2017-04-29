@@ -37,7 +37,7 @@ class RoundRobinRouter(val worker: List<ActorReference>): Actor() {
 
     private fun broadcast(message: Any) {
         for(w in worker) {
-            w.send(message)
+            w.send(message, sender())
         }
     }
 
@@ -45,7 +45,7 @@ class RoundRobinRouter(val worker: List<ActorReference>): Actor() {
         if (!iterator.hasNext()) {
             iterator = worker.listIterator()
         }
-        iterator.next().send(message)
+        iterator.next().send(message, sender())
     }
 
 }
