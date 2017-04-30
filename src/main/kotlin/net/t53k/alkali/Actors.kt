@@ -182,7 +182,7 @@ abstract class Actor: ActorFactory  {
             _sender = sender
             when (message) {
                 PoisonPill -> stop()
-                Watch -> sender()?.let { _watchers.add(it) }
+                Watch -> sender()?.let { _watchers += it }
                 else -> {
                     try {
                         receive(message)

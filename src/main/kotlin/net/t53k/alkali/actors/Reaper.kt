@@ -10,7 +10,7 @@ class Reaper(val starter: Reaper.() -> Unit): Actor() {
 
     override fun <T : Actor> actor(name: String, actor: T): ActorReference {
         val actorRef = super.actor(name, actor)
-        actors.add(actorRef)
+        actors += actorRef
         return actorRef
     }
 
@@ -20,7 +20,7 @@ class Reaper(val starter: Reaper.() -> Unit): Actor() {
     override fun receive(message: Any) {
         when(message) {
             Terminated -> {
-                sender()?.let { actors.remove(it) }
+                sender()?.let { actors -= it }
                 if(actors.size == 0) {
                     system().shutdown()
                 }
