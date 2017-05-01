@@ -200,15 +200,15 @@ abstract class Actor: ActorFactory  {
         }
     }
 
-    internal fun stop() {
+    fun stop() {
         _running = false
     }
 
-    internal fun system() = self().system
+    fun system() = self().system
 
-    internal fun sender() = _sender
+    fun sender() = _sender
 
-    internal fun self() =  _self
+    fun self() =  _self
 
     protected abstract fun receive(message: Any)
 }
