@@ -72,7 +72,7 @@ class ActorTestBuilder {
 
 class ActorTest(val test: TestRunActor.(ActorReference) -> Unit, val timeout: Long) {
     class TestRunActor(val test: TestRunActor.(ActorReference) -> Unit): Actor() {
-        private var messageHandler: (Any) -> (Unit) = { message -> }
+        private var messageHandler: (Any) -> (Unit) = { }
 
         override fun before() {
             test(self())

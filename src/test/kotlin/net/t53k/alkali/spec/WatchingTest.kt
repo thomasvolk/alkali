@@ -39,10 +39,10 @@ class WatchingTest {
 
     @Test
     fun reaper() {
-        (1..50).forEach {
-            actorTest { testActor ->
+        (1..50).forEach { cnt ->
+            actorTest {
                 testSystem().actor("reaper", Reaper( {
-                    val actors = (1..it).map { actor("d$it", DummyActor::class) }
+                    val actors = (1..cnt).map { actor("d$it", DummyActor::class) }
                     val router = testSystem().actor("router", RoundRobinRouter(actors))
                     router send Broadcast(PoisonPill)
                 }))

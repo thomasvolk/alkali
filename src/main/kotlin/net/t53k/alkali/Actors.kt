@@ -34,6 +34,12 @@ interface ActorFactory {
 
     fun <T> actor(name: String, actorClass: Class<T>): ActorReference where T : Actor = actor(name, actorClass.newInstance())
 
+    fun actor(name: String, handler: Actor.(Any) -> Unit): ActorReference = actor(name, object : Actor() {
+        override fun receive(message: Any) {
+            handler(message)
+        }
+    })
+
     fun <T> actor(name: String, actor: T): ActorReference where T : Actor
 }
 
@@ -194,15 +200,15 @@ abstract class Actor: ActorFactory  {
         }
     }
 
-    protected fun stop() {
+    internal fun stop() {
         _running = false
     }
 
-    protected fun system() = self().system
+    internal fun system() = self().system
 
-    protected fun sender() = _sender
+    internal fun sender() = _sender
 
-    protected fun self() =  _self
+    internal fun self() =  _self
 
     protected abstract fun receive(message: Any)
 }

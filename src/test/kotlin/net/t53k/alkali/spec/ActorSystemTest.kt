@@ -25,6 +25,7 @@ import net.t53k.alkali.Actor
 import net.t53k.alkali.ActorSystem
 import net.t53k.alkali.test.actorTest
 import net.t53k.alkali.test.actorTestBuilder
+import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class ActorSystemTest {
@@ -75,6 +76,26 @@ class ActorSystemTest {
         actorTest {
             val test = testSystem().actor("error", CannotCallWaitForShutdownError::class)
             test send "dummy"
+        }
+    }
+
+    @Test
+    fun actorHandler() {
+        val STOP_CMD = "Stop"
+        val ANSWER = "ANSWER"
+        actorTest {
+            val actor = testSystem().actor("test", { m ->
+                when(m) {
+                    STOP_CMD -> {
+                        sender()!! send ANSWER
+                        stop()
+                    }
+                }
+            })
+            actor send STOP_CMD
+            onMessage {
+                assertEquals(ANSWER, it)
+            }
         }
     }
 }
