@@ -39,6 +39,7 @@ interface ActorFactory {
 }
 
 class ActorSystem: ActorFactory {
+    private val SYSTEM_NAMESPACE = "_system"
     private val _actors = mutableMapOf<String, ActorReference>()
     private val _currentActor = ThreadLocal<ActorReference>()
     private var _active = true
@@ -46,10 +47,14 @@ class ActorSystem: ActorFactory {
     @Synchronized
     override fun <T> actor(name: String, actor: T): ActorReference where T : Actor {
         passIfActive()
+        if(name.startsWith(SYSTEM_NAMESPACE)) {
+            throw IllegalArgumentException("actor name can not start with '$SYSTEM_NAMESPACE' !")
+        }
         if (_actors.contains(name)) {
             throw IllegalArgumentException("actor '$name' already exists")
         }
-        val actorRef = actor.start(name, this)
+        val actorRef = ActorReference(this, actor, name)
+        actor.start(actorRef)
         _actors.put(name, actorRef)
         return actorRef
     }
@@ -137,10 +142,10 @@ abstract class Actor: ActorFactory  {
     }
 
     @Synchronized
-    internal fun start(name: String, system: ActorSystem): ActorReference {
+    internal fun start(ref: ActorReference) {
         if(_running) { throw IllegalStateException("actor already started!") }
         _running = true
-        _self = ActorReference(system, this, name)
+        _self = ref
         _thread = thread(start = true) {
             system().currentActor(self())
             before()
@@ -151,7 +156,6 @@ abstract class Actor: ActorFactory  {
                 _watchers.forEach { it send Terminated }
             }
         }
-        return _self
     }
 
     internal fun waitForShutdown() { _thread.join() }

@@ -54,6 +54,17 @@ class ActorSystemTest {
         }
     }
 
+    @Test(expected = IllegalArgumentException::class)
+    fun actorsCannotHaveSystemNamespace() {
+        val system = ActorSystem()
+        try {
+            system.actor("_system____", DummyActor::class)
+        } finally {
+            system.shutdown()
+            system.waitForShutdown()
+        }
+    }
+
     @Test(expected = IllegalStateException::class)
     fun inactiveSystemError() {
         val system = ActorSystem()
