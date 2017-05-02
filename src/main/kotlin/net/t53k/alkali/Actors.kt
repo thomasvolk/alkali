@@ -46,10 +46,15 @@ class ActorSystem: ActorFactory {
 
     @Synchronized
     override fun <T> actor(name: String, actor: T): ActorReference where T : Actor {
-        passIfActive()
         if(name.startsWith(SYSTEM_NAMESPACE)) {
             throw IllegalArgumentException("actor name can not start with '$SYSTEM_NAMESPACE' !")
         }
+        return _actor(name, actor)
+    }
+
+    @Synchronized
+    private fun <T> _actor(name: String, actor: T): ActorReference where T : Actor {
+        passIfActive()
         if (_actors.contains(name)) {
             throw IllegalArgumentException("actor '$name' already exists")
         }
