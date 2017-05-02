@@ -22,6 +22,7 @@
 package net.t53k.alkali.spec
 
 import net.t53k.alkali.Actor
+import net.t53k.alkali.ActorReference
 import net.t53k.alkali.ActorSystem
 import net.t53k.alkali.test.actorTest
 import net.t53k.alkali.test.actorTestBuilder
@@ -80,18 +81,21 @@ class ActorSystemTest {
     }
 
     @Test
-    fun actorHandler() {
+    fun actorTest() {
         val STOP_CMD = "Stop"
         val ANSWER = "ANSWER"
-        actorTest {
-            val actor = testSystem().actor("test", { m ->
-                when(m) {
+        class EchoStop: Actor() {
+            override fun receive(message: Any) {
+                when(message) {
                     STOP_CMD -> {
                         sender()!! send ANSWER
                         stop()
                     }
                 }
-            })
+            }
+        }
+        actorTest {
+            val actor = testSystem().actor("test", EchoStop())
             actor send STOP_CMD
             onMessage {
                 assertEquals(ANSWER, it)

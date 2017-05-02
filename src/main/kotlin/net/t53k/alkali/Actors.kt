@@ -28,17 +28,12 @@ import kotlin.reflect.KClass
 object PoisonPill
 object Terminated
 object Watch
+data class Forward(val message: Any)
 
 interface ActorFactory {
     fun <T> actor(name: String, actorClass: KClass<T>): ActorReference where T : Actor = actor(name, actorClass.java)
 
     fun <T> actor(name: String, actorClass: Class<T>): ActorReference where T : Actor = actor(name, actorClass.newInstance())
-
-    fun actor(name: String, handler: Actor.(Any) -> Unit): ActorReference = actor(name, object : Actor() {
-        override fun receive(message: Any) {
-            handler(message)
-        }
-    })
 
     fun <T> actor(name: String, actor: T): ActorReference where T : Actor
 }
@@ -187,28 +182,31 @@ abstract class Actor: ActorFactory  {
             val (message, sender) = _inbox.take()
             _sender = sender
             when (message) {
+                is Forward -> _receive(message.message)
                 PoisonPill -> stop()
                 Watch -> sender()?.let { _watchers += it }
-                else -> {
-                    try {
-                        receive(message)
-                    } catch (e: Exception) {
-                        onException(e)
-                    }
-                }
+                else -> _receive(message)
             }
         }
     }
 
-    fun stop() {
+    private fun _receive(message: Any) {
+        try {
+            receive(message)
+        } catch (e: Exception) {
+            onException(e)
+        }
+    }
+
+    protected fun stop() {
         _running = false
     }
 
-    fun system() = self().system
+    protected fun system() = self().system
 
-    fun sender() = _sender
+    protected fun sender() = _sender
 
-    fun self() =  _self
+    protected fun self() =  _self
 
     protected abstract fun receive(message: Any)
 }
