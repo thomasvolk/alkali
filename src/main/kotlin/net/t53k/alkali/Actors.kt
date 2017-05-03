@@ -49,11 +49,11 @@ class ActorSystem: ActorFactory {
         if(name.startsWith(SYSTEM_NAMESPACE)) {
             throw IllegalArgumentException("actor name can not start with '$SYSTEM_NAMESPACE' !")
         }
-        return _actor(name, actor)
+        return _start(name, actor)
     }
 
     @Synchronized
-    private fun <T> _actor(name: String, actor: T): ActorReference where T : Actor {
+    private fun <T> _start(name: String, actor: T): ActorReference where T : Actor {
         passIfActive()
         if (_actors.contains(name)) {
             throw IllegalArgumentException("actor '$name' already exists")
