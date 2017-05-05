@@ -19,10 +19,8 @@
  * under the License.
  *
  */
-package net.t53k.alkali.spec
+package net.t53k.alkali
 
-import net.t53k.alkali.Actor
-import net.t53k.alkali.ActorReference
 import net.t53k.alkali.router.Broadcast
 import net.t53k.alkali.router.RoundRobinRouter
 import net.t53k.alkali.test.actorTest
@@ -33,7 +31,7 @@ class RouterTest {
     class Worker: Actor() {
         object Stop
         override fun receive(message: Any) {
-            sender()!! send message
+            sender() send message
         }
     }
 
@@ -43,7 +41,7 @@ class RouterTest {
         override fun receive(message: Any) {
             when(message) {
                 is Int -> {
-                    val name = sender()!!.name
+                    val name = sender().name
                     val num = String.format("%02d", message)
                     _messages.add("$name-$num")
                 }

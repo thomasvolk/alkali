@@ -19,19 +19,31 @@
  * under the License.
  *
  */
-package net.t53k.alkali.spec
+package net.t53k.alkali
 
-import net.t53k.alkali.Actor
-import net.t53k.alkali.ActorReference
-import net.t53k.alkali.ActorSystem
 import net.t53k.alkali.test.actorTest
 import net.t53k.alkali.test.actorTestBuilder
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class ActorSystemTest {
+    companion object {
+      val STOP_CMD = "Stop"
+      val ANSWER = "ANSWER"
+    }
     class DummyActor : Actor() {
         override fun receive(message: Any) {
+        }
+    }
+    class EchoStop: Actor() {
+        override fun receive(message: Any) {
+            when(message) {
+                STOP_CMD -> {
+                    sender() send ANSWER
+                    stop()
+                }
+                else -> sender() send message
+            }
         }
     }
 
@@ -93,18 +105,6 @@ class ActorSystemTest {
 
     @Test
     fun actorTest() {
-        val STOP_CMD = "Stop"
-        val ANSWER = "ANSWER"
-        class EchoStop: Actor() {
-            override fun receive(message: Any) {
-                when(message) {
-                    STOP_CMD -> {
-                        sender()!! send ANSWER
-                        stop()
-                    }
-                }
-            }
-        }
         actorTest {
             val actor = testSystem().actor("test", EchoStop())
             actor send STOP_CMD
@@ -112,5 +112,31 @@ class ActorSystemTest {
                 assertEquals(ANSWER, it)
             }
         }
+    }
+
+    @Test
+    fun deadletterTest() {
+        val deadletters = mutableListOf<Int>()
+        actorTestBuilder().test {
+            val echo = testSystem().actor("echoStop", EchoStop::class)
+            val dummyActor = DummyActor()
+            val dummy = testSystem().actor("dummy", dummyActor)
+            dummy send PoisonPill
+            dummyActor.waitForShutdown()
+            dummy send 11
+            dummy send 12
+            echo.send(3, null)
+            echo.send(4, null)
+            echo.send(5, null)
+            echo send STOP_CMD
+            onMessage {
+                assertEquals(ANSWER, it)
+            }
+        }.deadletterHandler { m ->
+            when(m) {
+                is Int -> deadletters += m
+            }
+        }.build().run()
+        assertEquals(listOf(3,4,5,11,12), deadletters.toList().sorted())
     }
 }

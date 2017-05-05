@@ -19,7 +19,7 @@
  * under the License.
  *
  */
-package net.t53k.alkali.spec
+package net.t53k.alkali
 
 import net.t53k.alkali.Actor
 import net.t53k.alkali.ActorReference
@@ -43,13 +43,13 @@ class PingPongTest {
                     starter = sender()
                 }
                 Stop -> {
-                    sender()!! send PoisonPill
+                    sender() send PoisonPill
                     self() send PoisonPill
                     starter!! send lastPongId
                 }
                 is PongActor.Pong -> {
                     lastPongId = message.id
-                    sender()!! send Ping
+                    sender() send Ping
                 }
             }
         }
@@ -62,8 +62,8 @@ class PingPongTest {
             when(message) {
                 PingActor.Ping -> {
                     count++
-                    if(count < 100) sender()!! send Pong(count)
-                    else sender()!! send PingActor.Stop
+                    if(count < 100) sender() send Pong(count)
+                    else sender() send PingActor.Stop
                 }
             }
         }

@@ -38,7 +38,16 @@ interface ActorFactory {
     fun <T> actor(name: String, actor: T): ActorReference where T : Actor
 }
 
-class ActorSystem: ActorFactory {
+class ActorSystem(deadletterHandler: (Any) -> Unit = {}): ActorFactory {
+    private class DeadLetterAdapter(val deadletterHandler: (Any) -> Unit, override val name: String): ActorReference {
+        override fun send(message: Any) {
+            deadletterHandler(message)
+        }
+        override fun send(message: Any, sender: ActorReference?) {
+            deadletterHandler(message)
+        }
+        override fun watch(actorToWatchAt: ActorReference) {}
+    }
     private data class ActorWrapper(val reference: ActorReference, private val actor: Actor) {
         fun waitForShutdown() {
             actor.waitForShutdown()
@@ -48,6 +57,7 @@ class ActorSystem: ActorFactory {
     private val _actors = mutableMapOf<String, ActorWrapper>()
     private val _currentActor = ThreadLocal<ActorReference>()
     private var _active = true
+    private val deadLetterAdapter = DeadLetterAdapter(deadletterHandler, "_system/deadletter")
 
     @Synchronized
     override fun <T> actor(name: String, actor: T): ActorReference where T : Actor {
@@ -94,21 +104,34 @@ class ActorSystem: ActorFactory {
     }
 
     fun isActive() = _active
+
+    internal fun deadletter(): ActorReference = deadLetterAdapter
+
 }
 
 data class ActorMessageWrapper(val message: Any, val sender: ActorReference?)
 
-class ActorReference(private val system: ActorSystem, private val actor: Actor, val name: String) {
+interface ActorReference {
+    infix fun send(message: Any)
 
-    infix fun send(message: Any) {
+    fun send(message: Any, sender: ActorReference?)
+
+    infix fun watch(actorToWatchAt: ActorReference)
+
+    val name: String
+}
+
+class ActorReferenceImpl(private val system: ActorSystem, private val actor: Actor, override val name: String): ActorReference {
+
+    override infix fun send(message: Any) {
         send(message, system.currentActor())
     }
 
-    fun send(message: Any, sender: ActorReference?) {
+    override fun send(message: Any, sender: ActorReference?) {
         actor.send(message, sender)
     }
 
-    infix fun watch(actorToWatchAt: ActorReference) {
+    override infix fun watch(actorToWatchAt: ActorReference) {
         actorToWatchAt.send(Watch)
     }
 
@@ -137,7 +160,7 @@ abstract class Actor: ActorFactory  {
     private var _running = false
     private lateinit var _self: ActorReference
     private lateinit var _system: ActorSystem
-    private var _sender: ActorReference? = null
+    private lateinit var _sender: ActorReference
     private lateinit var _thread: Thread
     private val _watchers = mutableSetOf<ActorReference>()
 
@@ -151,7 +174,7 @@ abstract class Actor: ActorFactory  {
     internal fun start(name: String, system: ActorSystem): ActorReference {
         if(_running) { throw IllegalStateException("actor already started!") }
         _running = true
-        _self = ActorReference(system, this, name)
+        _self = ActorReferenceImpl(system, this, name)
         _system = system
         _thread = thread(start = true) {
             system().currentActor(self())
@@ -172,11 +195,8 @@ abstract class Actor: ActorFactory  {
         if(_thread.isAlive) {
             _inbox.offer(ActorMessageWrapper(message, sender))
         } else {
-            deadLetter(message, sender)
+            system().deadletter().send(message, sender)
         }
-    }
-
-    open protected fun deadLetter(message: Any, sender: ActorReference?) {
     }
 
     open protected fun after() {
@@ -192,11 +212,11 @@ abstract class Actor: ActorFactory  {
     private fun mainLoop() {
         while (_running) {
             val (message, sender) = _inbox.take()
-            _sender = sender
+            _sender = sender ?: system().deadletter()
             when (message) {
                 is Forward -> _receive(message.message)
                 PoisonPill -> stop()
-                Watch -> sender()?.let { _watchers += it }
+                Watch -> _watchers += sender()
                 else -> _receive(message)
             }
         }

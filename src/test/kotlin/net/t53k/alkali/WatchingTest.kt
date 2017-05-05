@@ -19,38 +19,31 @@
  * under the License.
  *
  */
-package net.t53k.alkali.spec
+package net.t53k.alkali
 
-import net.t53k.alkali.Actor
-import net.t53k.alkali.ActorReference
-import net.t53k.alkali.Forward
-import net.t53k.alkali.PoisonPill
+import net.t53k.alkali.actors.Reaper
 import net.t53k.alkali.router.Broadcast
 import net.t53k.alkali.router.RoundRobinRouter
 import net.t53k.alkali.test.actorTest
-import org.junit.Assert
-import org.junit.Assert.assertEquals
 import org.junit.Test
 
-class ForwardTest {
-    class ForwardTestActor: Actor() {
+class WatchingTest {
+    class DummyActor : Actor() {
         override fun receive(message: Any) {
-            when(message) {
-                PoisonPill -> {
-                    sender()!! send "DONE"
-                    stop()
-                }
-            }
         }
     }
+
     @Test
-    fun forward() {
-        actorTest {
-            val test = testSystem().actor("test", ForwardTestActor::class)
-            test send Forward(PoisonPill)
-            onMessage { m ->
-                assertEquals("DONE", m)
+    fun reaper() {
+        (1..50).forEach { cnt ->
+            actorTest {
+                testSystem().actor("reaper", Reaper( {
+                    val actors = (1..cnt).map { actor("d$it", DummyActor::class) }
+                    val router = testSystem().actor("router", RoundRobinRouter(actors))
+                    router send Broadcast(PoisonPill)
+                }))
             }
         }
     }
+
 }
