@@ -20,7 +20,7 @@ class Reaper(val starter: Reaper.() -> Unit): Actor() {
     override fun receive(message: Any) {
         when(message) {
             Terminated -> {
-                sender()?.let { actors -= it }
+                actors -= sender()
                 if(actors.size == 0) {
                     system().shutdown()
                 }
