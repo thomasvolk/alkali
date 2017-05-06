@@ -54,6 +54,7 @@ class ActorTestBuilder {
     var _test: (ActorTest.TestRunActor.(ActorReference) -> Unit)? = null
     var _timeout: Long = 2000
     var deadletterHandler: (Any) -> Unit = {}
+    var mainHandler: (Any) -> Unit = {}
 
     fun test(test: ActorTest.TestRunActor.(ActorReference) -> Unit): ActorTestBuilder {
         _test = test
@@ -65,17 +66,22 @@ class ActorTestBuilder {
         return this
     }
 
-    fun deadletterHandler(handler: (Any) -> Unit): ActorTestBuilder {
+    fun deadLetterHandler(handler: (Any) -> Unit): ActorTestBuilder {
         deadletterHandler = handler
         return this
     }
 
+    fun mainHandler(handler: (Any) -> Unit): ActorTestBuilder {
+        mainHandler = handler
+        return this
+    }
+
     fun build(): ActorTest {
-        return ActorTest(_test!!, _timeout, deadletterHandler)
+        return ActorTest(_test!!, _timeout, mainHandler, deadletterHandler)
     }
 }
 
-class ActorTest(val test: TestRunActor.(ActorReference) -> Unit, val timeout: Long, val deadletterHandler: (Any) -> Unit) {
+class ActorTest(val test: TestRunActor.(ActorReference) -> Unit, val timeout: Long, val mainHandler: (Any) -> Unit, val deadletterHandler: (Any) -> Unit) {
     class TestRunActor(val test: TestRunActor.(ActorReference) -> Unit): Actor() {
         private var messageHandler: (Any) -> (Unit) = { }
 
@@ -96,7 +102,7 @@ class ActorTest(val test: TestRunActor.(ActorReference) -> Unit, val timeout: Lo
     }
 
     fun run() {
-        val system = ActorSystem(deadletterHandler)
+        val system = ActorSystem(mainHandler, deadletterHandler)
         try {
             system.actor(this.toString(), TestRunActor(test))
         } finally {

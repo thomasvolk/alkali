@@ -29,7 +29,7 @@ import org.junit.Test
 class ActorSystemTest {
     companion object {
       val STOP_CMD = "Stop"
-      val ANSWER = "ANSWER"
+      val STOP_ANSWER = "STOP_ANSWER"
     }
     class DummyActor : Actor() {
         override fun receive(message: Any) {
@@ -39,7 +39,7 @@ class ActorSystemTest {
         override fun receive(message: Any) {
             when(message) {
                 STOP_CMD -> {
-                    sender() send ANSWER
+                    sender() send STOP_ANSWER
                     stop()
                 }
                 else -> sender() send message
@@ -109,7 +109,7 @@ class ActorSystemTest {
             val actor = testSystem().actor("test", EchoStop())
             actor send STOP_CMD
             onMessage {
-                assertEquals(ANSWER, it)
+                assertEquals(STOP_ANSWER, it)
             }
         }
     }
@@ -125,18 +125,15 @@ class ActorSystemTest {
             dummyActor.waitForShutdown()
             dummy send 11
             dummy send 12
-            echo.send(3, null)
-            echo.send(4, null)
-            echo.send(5, null)
             echo send STOP_CMD
             onMessage {
-                assertEquals(ANSWER, it)
+                assertEquals(STOP_ANSWER, it)
             }
-        }.deadletterHandler { m ->
+        }.deadLetterHandler { m ->
             when(m) {
                 is Int -> deadletters += m
             }
         }.build().run()
-        assertEquals(listOf(3,4,5,11,12), deadletters.toList().sorted())
+        assertEquals(listOf(11,12), deadletters.toList().sorted())
     }
 }

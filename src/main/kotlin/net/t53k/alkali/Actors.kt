@@ -38,15 +38,11 @@ interface ActorFactory {
     fun <T> actor(name: String, actor: T): ActorReference where T : Actor
 }
 
-class ActorSystem(deadletterHandler: (Any) -> Unit = {}): ActorFactory {
-    private class DeadLetterAdapter(val deadletterHandler: (Any) -> Unit, override val name: String): ActorReference {
-        override fun send(message: Any) {
-            deadletterHandler(message)
+class ActorSystem(mainHandler: (Any) -> Unit = {}, val deadLetterHandler: (Any) -> Unit = {}): ActorFactory {
+    private class MainActor(val mainHandler: (Any) -> Unit): Actor() {
+        override fun receive(message: Any) {
+            mainHandler(message)
         }
-        override fun send(message: Any, sender: ActorReference?) {
-            deadletterHandler(message)
-        }
-        override fun watch(actorToWatchAt: ActorReference) {}
     }
     private data class ActorWrapper(val reference: ActorReference, private val actor: Actor) {
         fun waitForShutdown() {
@@ -54,10 +50,16 @@ class ActorSystem(deadletterHandler: (Any) -> Unit = {}): ActorFactory {
         }
     }
     private val SYSTEM_NAMESPACE = "_system"
+    private val MAIN_ACTOR_NAME = "$SYSTEM_NAMESPACE/main"
     private val _actors = mutableMapOf<String, ActorWrapper>()
     private val _currentActor = ThreadLocal<ActorReference>()
     private var _active = true
-    private val deadLetterAdapter = DeadLetterAdapter(deadletterHandler, "_system/deadletter")
+    private lateinit var _mainActor: ActorReference
+
+    init {
+        _mainActor = _start(MAIN_ACTOR_NAME, MainActor(mainHandler))
+        currentActor(_mainActor)
+    }
 
     @Synchronized
     override fun <T> actor(name: String, actor: T): ActorReference where T : Actor {
@@ -69,10 +71,10 @@ class ActorSystem(deadletterHandler: (Any) -> Unit = {}): ActorFactory {
 
     @Synchronized
     private fun <T> _start(name: String, actor: T): ActorReference where T : Actor {
-        passIfActive()
         if (_actors.contains(name)) {
             throw IllegalArgumentException("actor '$name' already exists")
         }
+        passIfActive()
         val actorRef = actor.start(name, this)
         _actors.put(name, ActorWrapper(actorRef, actor))
         return actorRef
@@ -81,14 +83,14 @@ class ActorSystem(deadletterHandler: (Any) -> Unit = {}): ActorFactory {
     @Synchronized
     fun find(name: String): ActorReference? = _actors[name]?.reference
 
-    fun currentActor(): ActorReference? = _currentActor.get()
+    fun currentActor(): ActorReference = _currentActor.get()
 
     internal fun currentActor(actor: ActorReference) {
         _currentActor.set(actor)
     }
 
     fun waitForShutdown() {
-        if(currentActor() != null) { throw IllegalStateException("an actor from the same system can not wait system shutdown")}
+        if(currentActor().name != MAIN_ACTOR_NAME) { throw IllegalStateException("an actor from the same system can not wait system shutdown")}
         _actors.forEach { it.value.waitForShutdown() }
     }
 
@@ -105,33 +107,25 @@ class ActorSystem(deadletterHandler: (Any) -> Unit = {}): ActorFactory {
 
     fun isActive() = _active
 
-    internal fun deadletter(): ActorReference = deadLetterAdapter
+    internal fun deadLetter(message: Any) {
+        deadLetterHandler(message)
+    }
 
 }
 
-data class ActorMessageWrapper(val message: Any, val sender: ActorReference?)
+data class ActorMessageWrapper(val message: Any, val sender: ActorReference)
 
-interface ActorReference {
-    infix fun send(message: Any)
+class ActorReference(private val system: ActorSystem, private val actor: Actor, val name: String) {
 
-    fun send(message: Any, sender: ActorReference?)
-
-    infix fun watch(actorToWatchAt: ActorReference)
-
-    val name: String
-}
-
-class ActorReferenceImpl(private val system: ActorSystem, private val actor: Actor, override val name: String): ActorReference {
-
-    override infix fun send(message: Any) {
+    infix fun send(message: Any) {
         send(message, system.currentActor())
     }
 
-    override fun send(message: Any, sender: ActorReference?) {
+    fun send(message: Any, sender: ActorReference) {
         actor.send(message, sender)
     }
 
-    override infix fun watch(actorToWatchAt: ActorReference) {
+    infix fun watch(actorToWatchAt: ActorReference) {
         actorToWatchAt.send(Watch)
     }
 
@@ -174,7 +168,7 @@ abstract class Actor: ActorFactory  {
     internal fun start(name: String, system: ActorSystem): ActorReference {
         if(_running) { throw IllegalStateException("actor already started!") }
         _running = true
-        _self = ActorReferenceImpl(system, this, name)
+        _self = ActorReference(system, this, name)
         _system = system
         _thread = thread(start = true) {
             system().currentActor(self())
@@ -191,11 +185,11 @@ abstract class Actor: ActorFactory  {
 
     internal fun waitForShutdown() { _thread.join() }
 
-    internal fun send(message: Any, sender: ActorReference?) {
+    internal fun send(message: Any, sender: ActorReference) {
         if(_thread.isAlive) {
             _inbox.offer(ActorMessageWrapper(message, sender))
         } else {
-            system().deadletter().send(message, sender)
+            system().deadLetter(message)
         }
     }
 
@@ -212,7 +206,7 @@ abstract class Actor: ActorFactory  {
     private fun mainLoop() {
         while (_running) {
             val (message, sender) = _inbox.take()
-            _sender = sender ?: system().deadletter()
+            _sender = sender
             when (message) {
                 is Forward -> _receive(message.message)
                 PoisonPill -> stop()
