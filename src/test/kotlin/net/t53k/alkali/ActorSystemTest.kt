@@ -136,4 +136,27 @@ class ActorSystemTest {
         }.build().run()
         assertEquals(listOf(11,12), deadletters.toList().sorted())
     }
+
+    @Test
+    fun mainActor() {
+        val mainMessages = mutableListOf<Int>()
+        val system = ActorSystem(mainHandler = { m ->
+            when(m) {
+                is Int -> mainMessages += m
+            }
+        })
+        try {
+            val echoActor = EchoStop()
+            val echo = system.actor("echoStop", echoActor)
+            echo send 1
+            echo send 2
+            echo send 3
+            echo send PoisonPill
+            echoActor.waitForShutdown()
+        } finally {
+            system.shutdown()
+            system.waitForShutdown()
+        }
+        assertEquals(listOf(1,2,3), mainMessages.toList().sorted())
+    }
 }
