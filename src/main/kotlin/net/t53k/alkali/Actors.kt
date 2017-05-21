@@ -29,6 +29,7 @@ object PoisonPill
 object Terminated
 object Watch
 data class Forward(val message: Any)
+data class DeadLetter(val message: Any)
 
 interface ActorFactory {
     fun <T> actor(name: String, actorClass: KClass<T>): ActorReference where T : Actor = actor(name, actorClass.java)
@@ -38,33 +39,49 @@ interface ActorFactory {
     fun <T> actor(name: String, actor: T): ActorReference where T : Actor
 }
 
-class ActorSystem(mainHandler: (Any) -> Unit = {}, val deadLetterHandler: (Any) -> Unit = {}): ActorFactory {
+class NameSpace(val name: String) {
+    companion object {
+        val system = NameSpace("_system")
+    }
+    fun name(actorName: String) = "$name/$actorName"
+    fun hasNameSpace(actorName: String) = actorName.startsWith(name)
+}
+
+class ActorSystem(mainHandler: (Any) -> Unit = {}, deadLetterHandler: (Any) -> Unit = {}): ActorFactory {
     private class MainActor(val mainHandler: (Any) -> Unit): Actor() {
         override fun receive(message: Any) {
             mainHandler(message)
         }
     }
-    private data class ActorWrapper(val reference: ActorReference, private val actor: Actor) {
+    private class DeadLetterActor(val deadLetterHandler: (Any) -> Unit): Actor()  {
+        override fun receive(message: Any) {
+            deadLetterHandler((message as DeadLetter).message)
+        }
+
+    }
+    private data class ActorWrapper(val reference: ActorReference, private val actor: Actor){
         fun waitForShutdown() {
             actor.waitForShutdown()
         }
     }
-    private val SYSTEM_NAMESPACE = "_system"
-    private val MAIN_ACTOR_NAME = "$SYSTEM_NAMESPACE/main"
     private val _actors = mutableMapOf<String, ActorWrapper>()
     private val _currentActor = ThreadLocal<ActorReference>()
     private var _active = true
-    private lateinit var _mainActor: ActorReference
+    private var _mainActor: ActorReference
+    private var _deadLetterActor: ActorReference
+    private val MAIN_ACTOR_NAME = NameSpace.system.name("main")
+    private val DEAD_LETTER_ACTOR_NAME = NameSpace.system.name("deadLetter")
 
     init {
         _mainActor = _start(MAIN_ACTOR_NAME, MainActor(mainHandler))
         currentActor(_mainActor)
+        _deadLetterActor = _start(DEAD_LETTER_ACTOR_NAME, DeadLetterActor(deadLetterHandler))
     }
 
     @Synchronized
     override fun <T> actor(name: String, actor: T): ActorReference where T : Actor {
-        if(name.startsWith(SYSTEM_NAMESPACE)) {
-            throw IllegalArgumentException("actor name can not start with '$SYSTEM_NAMESPACE' !")
+        if(NameSpace.system.hasNameSpace(name)) {
+            throw IllegalArgumentException("actor name can not start with '${NameSpace.system.name}' !")
         }
         return _start(name, actor)
     }
@@ -108,7 +125,9 @@ class ActorSystem(mainHandler: (Any) -> Unit = {}, val deadLetterHandler: (Any) 
     fun isActive() = _active
 
     internal fun deadLetter(message: Any) {
-        deadLetterHandler(message)
+        if(message !is DeadLetter) {
+            _deadLetterActor send DeadLetter(message)
+        }
     }
 
 }
@@ -186,7 +205,7 @@ abstract class Actor: ActorFactory  {
     internal fun waitForShutdown() { _thread.join() }
 
     internal fun send(message: Any, sender: ActorReference) {
-        if(_thread.isAlive) {
+        if(_running) {
             _inbox.offer(ActorMessageWrapper(message, sender))
         } else {
             system().deadLetter(message)
