@@ -39,7 +39,7 @@ interface ActorFactory {
     fun <T> actor(name: String, actor: T): ActorReference where T : Actor
 }
 
-class NameSpace(val name: String) {
+internal class NameSpace(val name: String) {
     companion object {
         val system = NameSpace("_system")
     }
@@ -212,16 +212,6 @@ abstract class Actor: ActorFactory  {
         }
     }
 
-    open protected fun after() {
-    }
-
-    open protected fun before() {
-    }
-
-    open protected fun onException(e: Exception) {
-        throw e
-    }
-
     private fun mainLoop() {
         while (_running) {
             val (message, sender) = _inbox.take()
@@ -254,5 +244,15 @@ abstract class Actor: ActorFactory  {
     protected fun self() =  _self
 
     protected abstract fun receive(message: Any)
+
+    open protected fun after() {
+    }
+
+    open protected fun before() {
+    }
+
+    open protected fun onException(e: Exception) {
+        throw e
+    }
 }
 
