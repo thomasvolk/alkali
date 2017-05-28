@@ -24,6 +24,7 @@ package net.t53k.alkali.test
 import net.t53k.alkali.Actor
 import net.t53k.alkali.ActorReference
 import net.t53k.alkali.ActorSystem
+import net.t53k.alkali.ActorSystemBuilder
 import kotlin.concurrent.thread
 
 fun actorTestBuilder() = ActorTestBuilder()
@@ -102,7 +103,7 @@ class ActorTest(val test: TestRunActor.(ActorReference) -> Unit, val timeout: Lo
     }
 
     fun run() {
-        val system = ActorSystem(mainHandler, deadletterHandler)
+        val system = ActorSystemBuilder().onDefaultActorMessage(mainHandler).onDeadLetterMessage(deadletterHandler).build()
         try {
             system.actor(this.toString(), TestRunActor(test))
         } finally {

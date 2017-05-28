@@ -47,10 +47,24 @@ internal class NameSpace(val name: String) {
     fun hasNameSpace(actorName: String) = actorName.startsWith(name)
 }
 
-class ActorSystem(mainHandler: (Any) -> Unit = {}, deadLetterHandler: (Any) -> Unit = {}): ActorFactory {
-    private class MainActor(val mainHandler: (Any) -> Unit): Actor() {
+class ActorSystemBuilder {
+    private var defaultActorHandler: (Any) -> Unit = {}
+    private var deadLetterHandler: (Any) -> Unit = {}
+    fun onDefaultActorMessage(defaultActorHandler: (Any) -> Unit): ActorSystemBuilder {
+        this.defaultActorHandler = defaultActorHandler
+        return this
+    }
+    fun onDeadLetterMessage(deadLetterHandler: (Any) -> Unit): ActorSystemBuilder {
+        this.deadLetterHandler = deadLetterHandler
+        return this
+    }
+    fun build(): ActorSystem = ActorSystem(defaultActorHandler, deadLetterHandler)
+}
+
+class ActorSystem(defaultActorHandler: (Any) -> Unit = {}, deadLetterHandler: (Any) -> Unit = {}): ActorFactory {
+    private class DefaultActor(val defaultActorHandler: (Any) -> Unit): Actor() {
         override fun receive(message: Any) {
-            mainHandler(message)
+            defaultActorHandler(message)
         }
     }
     private class DeadLetterActor(val deadLetterHandler: (Any) -> Unit): Actor()  {
@@ -73,7 +87,7 @@ class ActorSystem(mainHandler: (Any) -> Unit = {}, deadLetterHandler: (Any) -> U
     private val DEAD_LETTER_ACTOR_NAME = NameSpace.system.name("deadLetter")
 
     init {
-        _mainActor = _start(MAIN_ACTOR_NAME, MainActor(mainHandler))
+        _mainActor = _start(MAIN_ACTOR_NAME, DefaultActor(defaultActorHandler))
         currentActor(_mainActor)
         _deadLetterActor = _start(DEAD_LETTER_ACTOR_NAME, DeadLetterActor(deadLetterHandler))
     }

@@ -56,7 +56,7 @@ class ActorSystemTest {
 
     @Test(expected = IllegalArgumentException::class)
     fun actorsCannotHaveTheSameName() {
-        val system = ActorSystem()
+        val system = ActorSystemBuilder().build()
         try {
             system.actor("dummy", DummyActor::class)
             system.actor("dummy", DummyActor::class)
@@ -68,7 +68,7 @@ class ActorSystemTest {
 
     @Test(expected = IllegalArgumentException::class)
     fun actorsCannotHaveSystemNamespace() {
-        val system = ActorSystem()
+        val system = ActorSystemBuilder().build()
         try {
             system.actor("_system____", DummyActor::class)
         } finally {
@@ -79,7 +79,7 @@ class ActorSystemTest {
 
     @Test(expected = IllegalStateException::class)
     fun inactiveSystemError() {
-        val system = ActorSystem()
+        val system = ActorSystemBuilder().build()
         system.shutdown()
         system.waitForShutdown()
         system.actor("dummy", DummyActor::class)
@@ -140,7 +140,7 @@ class ActorSystemTest {
     @Test
     fun mainActor() {
         val mainMessages = mutableListOf<Int>()
-        val system = ActorSystem(mainHandler = { m ->
+        val system = ActorSystem(defaultActorHandler = { m ->
             when(m) {
                 is Int -> mainMessages += m
             }
