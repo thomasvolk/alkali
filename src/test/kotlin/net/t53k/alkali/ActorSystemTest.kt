@@ -144,7 +144,7 @@ class ActorSystemTest {
 
     @Test
     fun mainActor() {
-        (1..50).forEach { c ->
+        (1..50).forEach {
             val mainMessages = mutableListOf<Int>()
             val system = ActorSystem(defaultActorHandler = { m ->
                 when (m) {
