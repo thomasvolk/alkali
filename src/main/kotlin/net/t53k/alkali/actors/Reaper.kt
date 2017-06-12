@@ -2,7 +2,6 @@ package net.t53k.alkali.actors
 
 import net.t53k.alkali.Actor
 import net.t53k.alkali.ActorReference
-import net.t53k.alkali.ActorSystem
 import net.t53k.alkali.Terminated
 
 class Reaper(val starter: Reaper.() -> Unit): Actor() {

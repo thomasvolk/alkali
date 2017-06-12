@@ -22,8 +22,7 @@
 package net.t53k.alkali
 
 import java.util.concurrent.LinkedBlockingQueue
-import kotlin.concurrent.thread
-import kotlin.reflect.KClass
+import java.util.concurrent.TimeUnit
 
 object PoisonPill
 object Terminated
@@ -31,13 +30,14 @@ object Watch
 data class Forward(val message: Any)
 data class DeadLetter(val message: Any)
 
-interface ActorFactory {
-    fun <T> actor(name: String, actorClass: KClass<T>): ActorReference where T : Actor = actor(name, actorClass.java)
-
-    fun <T> actor(name: String, actorClass: Class<T>): ActorReference where T : Actor = actor(name, actorClass.newInstance())
-
-    fun <T> actor(name: String, actor: T): ActorReference where T : Actor
+internal class AskingActor(private val returnChannel: LinkedBlockingQueue<Any>, private val target: ActorReference, val message: Any): Actor() {
+    override fun receive(message: Any) = returnChannel.put(message)
+    override fun before() {
+        target send message
+    }
 }
+
+class AskTimeoutException(msg: String): RuntimeException(msg)
 
 internal class NameSpace(val name: String) {
     companion object {
@@ -97,22 +97,42 @@ class ActorSystem(defaultActorHandler: (Any) -> Unit = {}, deadLetterHandler: (A
         if(NameSpace.system.hasNameSpace(name)) {
             throw IllegalArgumentException("actor name can not start with '${NameSpace.system.name}' !")
         }
-        return _start(name, actor)
+        return _actor(name, actor)
     }
 
     @Synchronized
-    private fun <T> _start(name: String, actor: T): ActorReference where T : Actor {
+    private fun <T> _actor(name: String, actor: T): ActorReference where T : Actor {
         if (_actors.contains(name)) {
             throw IllegalArgumentException("actor '$name' already exists")
         }
-        passIfActive()
-        val actorRef = actor.start(name, this)
+        val actorRef = _start(name, actor)
         _actors.put(name, ActorWrapper(actorRef, actor))
         return actorRef
     }
 
+    private fun <T> _start(name: String, actor: T): ActorReference where T : Actor {
+        passIfActive()
+        return actor.start(name, this)
+    }
+
+    @Synchronized
+    internal fun <T> actor(actor: T): ActorReference where T : Actor {
+        return _start(NameSpace.system.name("anonymous"), actor)
+    }
+
     @Synchronized
     fun find(name: String): ActorReference? = _actors[name]?.reference
+
+    internal fun ask(target: ActorReference, message: Any, timeout: Long): Any {
+        val returnChannel = LinkedBlockingQueue<Any>()
+        val askingActor = actor(AskingActor(returnChannel, target, message))
+        try {
+            return returnChannel.poll(timeout, TimeUnit.MILLISECONDS) ?: throw AskTimeoutException("timeout $timeout ms reached!")
+        }
+        finally {
+            askingActor send PoisonPill
+        }
+    }
 
     fun currentActor(): ActorReference = _currentActor.get()
 
@@ -143,130 +163,6 @@ class ActorSystem(defaultActorHandler: (Any) -> Unit = {}, deadLetterHandler: (A
             _deadLetterActor send DeadLetter(message)
         }
     }
-
 }
 
-data class ActorMessageWrapper(val message: Any, val sender: ActorReference)
-
-class ActorReference(private val system: ActorSystem, private val actor: Actor, val name: String) {
-
-    infix fun send(message: Any) {
-        send(message, system.currentActor())
-    }
-
-    fun send(message: Any, sender: ActorReference) {
-        actor.send(message, sender)
-    }
-
-    infix fun watch(actorToWatchAt: ActorReference) {
-        actorToWatchAt.send(Watch)
-    }
-
-    override fun equals(other: Any?): Boolean {
-        if (this === other) return true
-        if (other?.javaClass != javaClass) return false
-
-        other as ActorReference
-
-        if (name != other.name) return false
-
-        return true
-    }
-
-    override fun hashCode(): Int {
-        return name.hashCode()
-    }
-
-    override fun toString(): String {
-        return "ActorReference(actor='$name')"
-    }
-}
-
-abstract class Actor: ActorFactory  {
-    private val _inbox = LinkedBlockingQueue<ActorMessageWrapper>()
-    private var _running = false
-    private lateinit var _self: ActorReference
-    private lateinit var _system: ActorSystem
-    private lateinit var _sender: ActorReference
-    private lateinit var _thread: Thread
-    private val _watchers = mutableSetOf<ActorReference>()
-
-    override fun <T : Actor> actor(name: String, actor: T): ActorReference {
-        val actorRef = system().actor(name, actor)
-        self() watch actorRef
-        return actorRef
-    }
-
-    @Synchronized
-    internal fun start(name: String, system: ActorSystem): ActorReference {
-        if(_running) { throw IllegalStateException("actor already started!") }
-        _running = true
-        _self = ActorReference(system, this, name)
-        _system = system
-        _thread = thread(start = true) {
-            system().currentActor(self())
-            before()
-            try {
-                mainLoop()
-            } finally {
-                after()
-                _watchers.forEach { it send Terminated }
-            }
-        }
-        return _self
-    }
-
-    internal fun waitForShutdown() { _thread.join() }
-
-    internal fun send(message: Any, sender: ActorReference) {
-        if(_running) {
-            _inbox.offer(ActorMessageWrapper(message, sender))
-        } else {
-            system().deadLetter(message)
-        }
-    }
-
-    private fun mainLoop() {
-        while (_running) {
-            val (message, sender) = _inbox.take()
-            _sender = sender
-            when (message) {
-                is Forward -> _receive(message.message)
-                PoisonPill -> stop()
-                Watch -> _watchers += sender()
-                else -> _receive(message)
-            }
-        }
-    }
-
-    private fun _receive(message: Any) {
-        try {
-            receive(message)
-        } catch (e: Exception) {
-            onException(e)
-        }
-    }
-
-    protected fun stop() {
-        _running = false
-    }
-
-    protected fun system() = _system
-
-    protected fun sender() = _sender
-
-    protected fun self() =  _self
-
-    protected abstract fun receive(message: Any)
-
-    open protected fun after() {
-    }
-
-    open protected fun before() {
-    }
-
-    open protected fun onException(e: Exception) {
-        throw e
-    }
-}
 
