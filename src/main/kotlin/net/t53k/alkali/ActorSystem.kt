@@ -48,9 +48,9 @@ internal class NameSpace(val name: String) {
 }
 
 class ActorSystemBuilder {
-    private var defaultActorHandler: (Any) -> Unit = {}
+    private var defaultActorHandler: ActorSystem.(Any) -> Unit = {}
     private var deadLetterHandler: (Any) -> Unit = {}
-    fun onDefaultActorMessage(defaultActorHandler: (Any) -> Unit): ActorSystemBuilder {
+    fun onDefaultActorMessage(defaultActorHandler: ActorSystem.(Any) -> Unit): ActorSystemBuilder {
         this.defaultActorHandler = defaultActorHandler
         return this
     }
@@ -61,10 +61,10 @@ class ActorSystemBuilder {
     fun build(): ActorSystem = ActorSystem(defaultActorHandler, deadLetterHandler)
 }
 
-class ActorSystem(defaultActorHandler: (Any) -> Unit = {}, deadLetterHandler: (Any) -> Unit = {}): ActorFactory {
-    private class DefaultActor(val defaultActorHandler: (Any) -> Unit): Actor() {
+class ActorSystem(defaultActorHandler: ActorSystem.(Any) -> Unit = {}, deadLetterHandler: (Any) -> Unit = {}): ActorFactory {
+    private class DefaultActor(val defaultActorHandler: ActorSystem.(Any) -> Unit): Actor() {
         override fun receive(message: Any) {
-            defaultActorHandler(message)
+            defaultActorHandler(system(), message)
         }
     }
     private class DeadLetterActor(val deadLetterHandler: (Any) -> Unit): Actor()  {

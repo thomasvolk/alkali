@@ -46,6 +46,11 @@ class ActorSystemTest {
             }
         }
     }
+    class Echo: Actor() {
+        override fun receive(message: Any) {
+            sender() send  message
+        }
+    }
 
     @Test(expected = RuntimeException::class)
     fun actorTestTimeout() {
@@ -139,24 +144,25 @@ class ActorSystemTest {
 
     @Test
     fun mainActor() {
-        val mainMessages = mutableListOf<Int>()
-        val system = ActorSystem(defaultActorHandler = { m ->
-            when(m) {
-                is Int -> mainMessages += m
+        (1..50).forEach { c ->
+            val mainMessages = mutableListOf<Int>()
+            val system = ActorSystem(defaultActorHandler = { m ->
+                when (m) {
+                    is Int -> mainMessages += m
+                    STOP_CMD -> shutdown()
+                }
+            })
+            try {
+                val echoActor = Echo()
+                val echo = system.actor("echoStop", echoActor)
+                echo send 1
+                echo send 2
+                echo send 3
+                echo send STOP_CMD
+            } finally {
+                system.waitForShutdown()
             }
-        })
-        try {
-            val echoActor = EchoStop()
-            val echo = system.actor("echoStop", echoActor)
-            echo send 1
-            echo send 2
-            echo send 3
-            echo send PoisonPill
-            echoActor.waitForShutdown()
-        } finally {
-            system.shutdown()
-            system.waitForShutdown()
+            assertEquals(listOf(1, 2, 3), mainMessages.toList().sorted())
         }
-        assertEquals(listOf(1,2,3), mainMessages.toList().sorted())
     }
 }
