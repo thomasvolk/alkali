@@ -7,4 +7,4 @@ jdk:
 os:
 - linux
 
-script: (cd thomasvolk/alkali && mvn test -B)
+script: gradle build
