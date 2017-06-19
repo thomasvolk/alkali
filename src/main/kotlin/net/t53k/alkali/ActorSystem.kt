@@ -21,8 +21,7 @@
  */
 package net.t53k.alkali
 
-import java.util.concurrent.LinkedBlockingQueue
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.*
 
 object PoisonPill
 object Terminated
@@ -50,6 +49,7 @@ internal class NameSpace(val name: String) {
 class ActorSystemBuilder {
     private var defaultActorHandler: ActorSystem.(Any) -> Unit = {}
     private var deadLetterHandler: (Any) -> Unit = {}
+    private var executorService: ExecutorService = Executors.newCachedThreadPool()
     fun onDefaultActorMessage(defaultActorHandler: ActorSystem.(Any) -> Unit): ActorSystemBuilder {
         this.defaultActorHandler = defaultActorHandler
         return this
@@ -58,10 +58,15 @@ class ActorSystemBuilder {
         this.deadLetterHandler = deadLetterHandler
         return this
     }
-    fun build(): ActorSystem = ActorSystem(defaultActorHandler, deadLetterHandler)
+    fun executorService(executorService: ExecutorService): ActorSystemBuilder {
+        this.executorService = executorService
+        return this;
+    }
+    fun build(): ActorSystem = ActorSystem(defaultActorHandler, deadLetterHandler, executorService)
 }
 
-class ActorSystem(defaultActorHandler: ActorSystem.(Any) -> Unit = {}, deadLetterHandler: (Any) -> Unit = {}): ActorFactory {
+class ActorSystem(defaultActorHandler: ActorSystem.(Any) -> Unit = {}, deadLetterHandler: (Any) -> Unit = {},
+                  private val _executorService: ExecutorService = Executors.newCachedThreadPool()): ActorFactory {
     private class DefaultActor(val defaultActorHandler: ActorSystem.(Any) -> Unit): Actor() {
         override fun receive(message: Any) {
             defaultActorHandler(system(), message)
@@ -112,7 +117,7 @@ class ActorSystem(defaultActorHandler: ActorSystem.(Any) -> Unit = {}, deadLette
 
     private fun <T> _start(name: String, actor: T): ActorReference where T : Actor {
         passIfActive()
-        return actor.start(name, this)
+        return actor.start(name, this, _executorService)
     }
 
     @Synchronized
@@ -150,6 +155,7 @@ class ActorSystem(defaultActorHandler: ActorSystem.(Any) -> Unit = {}, deadLette
         passIfActive()
         _actors.forEach { it.value.reference.send(PoisonPill) }
         _active = false
+        _executorService.shutdown()
     }
 
     private fun passIfActive() {
