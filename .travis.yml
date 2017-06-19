@@ -7,4 +7,4 @@ jdk:
 os:
 - linux
 
-script: gradle build
+script: gradle test build
