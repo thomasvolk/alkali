@@ -81,15 +81,14 @@ class ActorSystem(defaultActorHandler: ActorSystem.(Any) -> Unit = {}, deadLette
     private val _actors = mutableMapOf<String, ActorWrapper>()
     private val _currentActor = ThreadLocal<ActorReference>()
     private var _active = true
-    private var _mainActor: ActorReference
-    private var _deadLetterActor: ActorReference
+    private var _deadLetterActor: ActorWrapper
     private val MAIN_ACTOR_NAME = NameSpace.system.name("main")
     private val DEAD_LETTER_ACTOR_NAME = NameSpace.system.name("deadLetter")
 
     init {
-        _mainActor = _start(MAIN_ACTOR_NAME, DefaultActor(defaultActorHandler))
-        currentActor(_mainActor)
-        _deadLetterActor = _start(DEAD_LETTER_ACTOR_NAME, DeadLetterActor(deadLetterHandler))
+        currentActor(_actor(MAIN_ACTOR_NAME, DefaultActor(defaultActorHandler)))
+        val deadLetterActor = DeadLetterActor(deadLetterHandler)
+        _deadLetterActor = ActorWrapper(_start(DEAD_LETTER_ACTOR_NAME, deadLetterActor), deadLetterActor)
     }
 
     @Synchronized
@@ -143,12 +142,14 @@ class ActorSystem(defaultActorHandler: ActorSystem.(Any) -> Unit = {}, deadLette
     fun waitForShutdown() {
         if(currentActor().name != MAIN_ACTOR_NAME) { throw IllegalStateException("an actor from the same system can not wait system shutdown")}
         _actors.forEach { it.value.waitForShutdown() }
+        _deadLetterActor.waitForShutdown()
     }
 
     @Synchronized
     fun shutdown() {
         passIfActive()
-        _actors.forEach { it.value.reference.send(PoisonPill) }
+        _actors.forEach { it.value.reference send PoisonPill }
+        _deadLetterActor.reference send PoisonPill
         _active = false
     }
 
@@ -160,7 +161,7 @@ class ActorSystem(defaultActorHandler: ActorSystem.(Any) -> Unit = {}, deadLette
 
     internal fun deadLetter(message: Any) {
         if(message !is DeadLetter) {
-            _deadLetterActor send DeadLetter(message)
+            _deadLetterActor.reference send DeadLetter(message)
         }
     }
 }
