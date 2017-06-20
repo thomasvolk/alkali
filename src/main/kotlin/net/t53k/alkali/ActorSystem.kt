@@ -84,6 +84,8 @@ class ActorSystem(defaultActorHandler: ActorSystem.(Any) -> Unit = {}, deadLette
     private var _deadLetterActor: ActorWrapper
     private val MAIN_ACTOR_NAME = NameSpace.system.name("main")
     private val DEAD_LETTER_ACTOR_NAME = NameSpace.system.name("deadLetter")
+    private val WAIT_FOR_SHUTDOWN_INTERVALL = 10L
+
 
     init {
         currentActor(_actor(MAIN_ACTOR_NAME, DefaultActor(defaultActorHandler)))
@@ -141,6 +143,9 @@ class ActorSystem(defaultActorHandler: ActorSystem.(Any) -> Unit = {}, deadLette
 
     fun waitForShutdown() {
         if(currentActor().name != MAIN_ACTOR_NAME) { throw IllegalStateException("an actor from the same system can not wait system shutdown")}
+        while (isActive()) {
+            Thread.sleep(WAIT_FOR_SHUTDOWN_INTERVALL)
+        }
         _actors.forEach { it.value.waitForShutdown() }
         _deadLetterActor.waitForShutdown()
     }
