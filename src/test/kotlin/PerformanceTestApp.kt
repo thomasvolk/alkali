@@ -26,6 +26,7 @@ import net.t53k.alkali.tree.*
 class TreeController(val levels: Long, val leafs: Int, val questionCount: Long): Actor() {
     private var answerReceived = 0L
     private val startTime = System.currentTimeMillis()
+    private var expectedAnswers: Long = 0
 
     override fun before() {
         val tree = system().actor("tree", Tree::class)
@@ -35,20 +36,30 @@ class TreeController(val levels: Long, val leafs: Int, val questionCount: Long):
     override fun receive(message: Any) {
         when(message) {
             is TreeCreated -> {
-                println("tree=$message, questions=$questionCount, expectedAnswers=${message.leafeCount * questionCount}")
+                expectedAnswers=message.leafeCount * questionCount
+                println("tree=$message, questions=$questionCount, expectedAnswers=$expectedAnswers")
                 for(i in 1..questionCount) {
                     sender() send Question("question[$i]")
                 }
             }
             is Answer -> {
                 answerReceived++
+                if(expectedAnswersReached()) {
+                    printReport()
+                }
             }
         }
     }
 
-    override fun after() {
+    private fun expectedAnswersReached() = answerReceived >= expectedAnswers
+
+    private fun printReport() {
         val duration = System.currentTimeMillis() - startTime
         println("answers received: $answerReceived in $duration ms")
+    }
+
+    override fun after() {
+        if(!expectedAnswersReached()) printReport()
     }
 }
 

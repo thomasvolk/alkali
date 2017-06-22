@@ -17,7 +17,7 @@ apply plugin: 'kotlin'
 task execute(type:JavaExec) {
 	main = 'PerformanceTestAppKt'
 	classpath = sourceSets.test.runtimeClasspath
-	args = ['9', '2', '200', '2000']
+	args = ['9', '2', '2000', '10000']
 }
 repositories {
 	mavenCentral()
