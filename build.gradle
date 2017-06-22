@@ -13,11 +13,12 @@ buildscript {
 }
 
 apply plugin: 'kotlin'
+apply plugin: 'jacoco'
 
 task execute(type:JavaExec) {
 	main = 'PerformanceTestAppKt'
 	classpath = sourceSets.test.runtimeClasspath
-	args = ['9', '2', '2000', '10000']
+	args = ['6', '4', '10000', '10000']
 }
 repositories {
 	mavenCentral()
