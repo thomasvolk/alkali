@@ -36,6 +36,8 @@ data class Start(val path: String, val level: Long, val maxLevel: Long, val leaf
 }
 data class Created(val name: String)
 data class TreeCreated(val leafeCount: Long)
+data class Question(val message: String)
+data class Answer(val question: Question, val message: String)
 
 class Tree : Actor() {
     private lateinit var root: ActorReference
@@ -57,6 +59,8 @@ class Tree : Actor() {
                     starter send TreeCreated(count)
                 }
             }
+            is Question -> root send message
+            is Answer -> starter send message
         }
     }
 }
@@ -79,6 +83,11 @@ class Node : Actor() {
                 sender() send Created(self().name)
             }
             is Created -> parent send message
+            is Question -> {
+                children.forEach { it send message }
+                self() send Answer(message, "Answer to: ${message.message}")
+            }
+            is Answer -> parent send message
         }
     }
 }
