@@ -14,9 +14,14 @@ buildscript {
 
 apply plugin: 'kotlin'
 
+task execute(type:JavaExec) {
+	main = 'PerformanceTestAppKt'
+	classpath = sourceSets.test.runtimeClasspath
+	args = ['9', '2', '200', '2000']
+}
 repositories {
-		mavenCentral()
-	}
+	mavenCentral()
+}
 
 dependencies {
 	testCompile 'junit:junit:4.12'
