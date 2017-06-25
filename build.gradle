@@ -18,7 +18,7 @@ apply plugin: 'jacoco'
 task execute(type:JavaExec) {
 	main = 'PerformanceTestAppKt'
 	classpath = sourceSets.test.runtimeClasspath
-	args = ['6', '4', '10000', '10000']
+	args = ['6', '4', '1000', '30000']
 }
 repositories {
 	mavenCentral()
