@@ -21,8 +21,6 @@
  */
 package net.t53k.alkali
 
-import java.util.concurrent.ExecutorService
-import java.util.concurrent.Future
 import java.util.concurrent.LinkedBlockingQueue
 import kotlin.concurrent.thread
 
