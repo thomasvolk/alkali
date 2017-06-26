@@ -77,7 +77,6 @@ class ActorSystem(defaultActorHandler: ActorSystem.(Any) -> Unit = {}, deadLette
             actor.waitForShutdown()
         }
     }
-    private val _executorService: ExecutorService = Executors.newCachedThreadPool()
     private val _actors = mutableMapOf<String, ActorWrapper>()
     private val _currentActor = ThreadLocal<ActorReference>()
     private var _active = true
@@ -113,7 +112,7 @@ class ActorSystem(defaultActorHandler: ActorSystem.(Any) -> Unit = {}, deadLette
 
     private fun <T> _start(name: String, actor: T): ActorReference where T : Actor {
         passIfActive()
-        return actor.start(name, this, _executorService)
+        return actor.start(name, this)
     }
 
     @Synchronized
@@ -156,7 +155,6 @@ class ActorSystem(defaultActorHandler: ActorSystem.(Any) -> Unit = {}, deadLette
         _actors.forEach { it.value.reference send PoisonPill }
         _deadLetterActor.reference send PoisonPill
         _active = false
-        _executorService.shutdown()
     }
 
     private fun passIfActive() {

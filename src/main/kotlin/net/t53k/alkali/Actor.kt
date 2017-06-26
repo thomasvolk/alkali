@@ -24,6 +24,7 @@ package net.t53k.alkali
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Future
 import java.util.concurrent.LinkedBlockingQueue
+import kotlin.concurrent.thread
 
 internal data class ActorMessageWrapper(val message: Any, val sender: ActorReference)
 
@@ -33,7 +34,7 @@ abstract class Actor: ActorFactory {
     private lateinit var _self: ActorReference
     private lateinit var _system: ActorSystem
     private lateinit var _sender: ActorReference
-    private lateinit var _thread: Future<*>
+    private lateinit var _thread: Thread
     private val _watchers = mutableSetOf<ActorReference>()
 
     override fun <T : Actor> actor(name: String, actor: T): ActorReference {
@@ -43,12 +44,12 @@ abstract class Actor: ActorFactory {
     }
 
     @Synchronized
-    internal fun start(name: String, system: ActorSystem, executorService: ExecutorService): ActorReference {
+    internal fun start(name: String, system: ActorSystem): ActorReference {
         if(_running) { throw IllegalStateException("actor already started!") }
         _running = true
         _self = ActorReference(system, this, name)
         _system = system
-        _thread = executorService.submit {
+        _thread = thread {
             system().currentActor(self())
             before()
             try {
@@ -61,7 +62,7 @@ abstract class Actor: ActorFactory {
         return _self
     }
 
-    internal fun waitForShutdown() { _thread.get() }
+    internal fun waitForShutdown() { _thread.join() }
 
     internal fun send(message: Any, sender: ActorReference) {
         if(_running) {
