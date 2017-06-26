@@ -49,7 +49,6 @@ internal class NameSpace(val name: String) {
 class ActorSystemBuilder {
     private var defaultActorHandler: ActorSystem.(Any) -> Unit = {}
     private var deadLetterHandler: (Any) -> Unit = {}
-    private var executorService: ExecutorService = Executors.newCachedThreadPool()
     fun onDefaultActorMessage(defaultActorHandler: ActorSystem.(Any) -> Unit): ActorSystemBuilder {
         this.defaultActorHandler = defaultActorHandler
         return this
@@ -58,15 +57,10 @@ class ActorSystemBuilder {
         this.deadLetterHandler = deadLetterHandler
         return this
     }
-    fun executorService(executorService: ExecutorService): ActorSystemBuilder {
-        this.executorService = executorService
-        return this;
-    }
-    fun build(): ActorSystem = ActorSystem(defaultActorHandler, deadLetterHandler, executorService)
+    fun build(): ActorSystem = ActorSystem(defaultActorHandler, deadLetterHandler)
 }
 
-class ActorSystem(defaultActorHandler: ActorSystem.(Any) -> Unit = {}, deadLetterHandler: (Any) -> Unit = {},
-                  private val _executorService: ExecutorService = Executors.newCachedThreadPool()): ActorFactory {
+class ActorSystem(defaultActorHandler: ActorSystem.(Any) -> Unit = {}, deadLetterHandler: (Any) -> Unit = {}): ActorFactory {
     private class DefaultActor(val defaultActorHandler: ActorSystem.(Any) -> Unit): Actor() {
         override fun receive(message: Any) {
             defaultActorHandler(system(), message)
@@ -83,6 +77,7 @@ class ActorSystem(defaultActorHandler: ActorSystem.(Any) -> Unit = {}, deadLette
             actor.waitForShutdown()
         }
     }
+    private val _executorService: ExecutorService = Executors.newCachedThreadPool()
     private val _actors = mutableMapOf<String, ActorWrapper>()
     private val _currentActor = ThreadLocal<ActorReference>()
     private var _active = true

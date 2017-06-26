@@ -15,10 +15,10 @@ version = '1.0-SNAPSHOT'
 apply plugin: 'kotlin'
 apply plugin: 'jacoco'
 
-task execute(type:JavaExec) {
+task treeApp(type:JavaExec) {
 	main = 'PerformanceTestAppKt'
 	classpath = sourceSets.test.runtimeClasspath
-	args = ['6', '4', '1000', '30000']
+	args = ['12', '2', '100', '10000']
 }
 repositories {
 	mavenCentral()
