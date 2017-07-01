@@ -64,7 +64,7 @@ abstract class Actor: ActorFactory {
 
     internal fun send(message: Any, sender: ActorReference) {
         if(_running) {
-            _inbox.offer(ActorMessageWrapper(message, sender))
+            _inbox.put(ActorMessageWrapper(message, sender))
         } else {
             system().deadLetter(message)
         }
