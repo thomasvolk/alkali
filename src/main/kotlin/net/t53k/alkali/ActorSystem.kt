@@ -94,17 +94,13 @@ class ActorSystem(defaultActorHandler: ActorSystem.(Any) -> Unit = {}, deadLette
 
     @Synchronized
     override fun <T> actor(name: String, actor: T): ActorReference where T : Actor {
-        if(NameSpace.system.hasNameSpace(name)) {
-            throw IllegalArgumentException("actor name can not start with '${NameSpace.system.name}' !")
-        }
+        require(!NameSpace.system.hasNameSpace(name)) { "actor name can not start with '${NameSpace.system.name}' !" }
         return _actor(name, actor)
     }
 
     @Synchronized
     private fun <T> _actor(name: String, actor: T): ActorReference where T : Actor {
-        if (_actors.contains(name)) {
-            throw IllegalArgumentException("actor '$name' already exists")
-        }
+        require (!_actors.contains(name)) { "actor '$name' already exists" }
         val actorRef = _start(name, actor)
         _actors.put(name, ActorWrapper(actorRef, actor))
         return actorRef
