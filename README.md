@@ -3,6 +3,9 @@ Alkali
 
 Alkali is a small and simple actor library written in Kotlin.
 
+[![Coverage Status](https://coveralls.io/repos/github/thomasvolk/alkali/badge.svg?branch=master)](https://coveralls.io/github/thomasvolk/alkali?branch=master)
+[![Build Status](https://travis-ci.org/thomasvolk/alkali.svg?branch=master)](https://travis-ci.org/thomasvolk/alkali)
+
 Install
 -------
 
