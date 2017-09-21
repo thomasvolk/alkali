@@ -6,7 +6,6 @@ Alkali is a small and simple actor library written in Kotlin.
 Install
 -------
 
-
 ```
 repositories {
     maven { url 'https://jitpack.io' }

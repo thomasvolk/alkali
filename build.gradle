@@ -9,6 +9,10 @@ buildscript {
 	}
 }
 
+plugins {
+	id 'com.github.kt3k.coveralls' version '2.7.1'
+}
+
 group = 'net.t53k'
 version = '1.0-SNAPSHOT'
 
@@ -20,6 +24,7 @@ task treeApp(type:JavaExec) {
 	classpath = sourceSets.test.runtimeClasspath
 	args = ['12', '2', '100', '10000']
 }
+
 repositories {
 	mavenCentral()
 }
@@ -27,4 +32,16 @@ repositories {
 dependencies {
 	testCompile 'junit:junit:4.12'
 	compile "org.jetbrains.kotlin:kotlin-stdlib-jre8:$kotlin_version"
+}
+
+jacocoTestReport {
+	group = "Report"
+	reports {
+		xml.enabled = true
+		csv.enabled = false
+	}
+}
+
+coveralls {
+	sourceDirs += ['src/main/kotlin']
 }
