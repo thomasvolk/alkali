@@ -109,13 +109,9 @@ class ActorSystemTest {
     }
 
     @Test
-    fun actorTest() {
-        actorTest {
-            val actor = testSystem().actor("test", EchoStop())
-            actor send STOP_CMD
-            onMessage {
-                assertEquals(STOP_ANSWER, it)
-            }
+    fun mainHandlerTest() {
+        actorTestBuilder().mainHandler { shutdown() }.test {
+            testSystem().find(NameSpace.system.name("main"))?.send("Test")
         }
     }
 

@@ -52,10 +52,10 @@ fun ActorSystem.waitForShutdown(timeout: Long) {
 }
 
 class ActorTestBuilder {
-    var _test: (ActorTest.TestRunActor.(ActorReference) -> Unit)? = null
-    var _timeout: Long = 2000
-    var deadletterHandler: (Any) -> Unit = {}
-    var mainHandler: ActorSystem.(Any) -> Unit = {}
+    private lateinit var _test: (ActorTest.TestRunActor.(ActorReference) -> Unit)
+    private var _timeout: Long = 2000
+    private var deadletterHandler: (Any) -> Unit = {}
+    private var mainHandler: ActorSystem.(Any) -> Unit = {}
 
     fun test(test: ActorTest.TestRunActor.(ActorReference) -> Unit): ActorTestBuilder {
         _test = test
@@ -78,7 +78,7 @@ class ActorTestBuilder {
     }
 
     fun build(): ActorTest {
-        return ActorTest(_test!!, _timeout, mainHandler, deadletterHandler)
+        return ActorTest(_test, _timeout, mainHandler, deadletterHandler)
     }
 }
 
